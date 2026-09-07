@@ -2,7 +2,7 @@
 
 ## 0.1.0
 
-- First public release: sidecar model switcher, CLI registration, txcript hops.
+- First public release: sidecar model switcher, CLI registration, txcript hops. Txcript is credited as the converter (README + NOTICE); this repo does not vendor it.
 - Canonical session roots for Claude Code, Codex, and Cursor CLI (no desktop).
 - Config lives in `~/.baton` (`BATON_HOME`).
 - `baton set` (aliases: `list`, `select`, `sidecar`) is the live model picker; no typed catalog ids.

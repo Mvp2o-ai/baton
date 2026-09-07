@@ -12,7 +12,8 @@
     "scripts",
     "pyproject.toml",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "publishConfig": {
     "access": "public"

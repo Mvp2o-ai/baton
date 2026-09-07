@@ -1,0 +1,15 @@
+Baton
+Copyright 2026 Baton contributors
+
+This product is licensed under the Apache License, Version 2.0.
+
+Cross-harness session conversion is performed by txcript, a separate
+Apache License 2.0 project:
+
+  txcript
+  https://github.com/skillsynchq/txcript
+  Copyright Skillsync Inc. and txcript contributors
+
+Baton shells out to the txcript CLI (`txcript continue --no-resume`)
+on harness hops. It does not include txcript source and is not a fork.
+See https://github.com/skillsynchq/txcript for txcript’s license terms.

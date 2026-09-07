@@ -4,7 +4,7 @@ Sidecar model switcher for **Claude Code**, **Codex**, and **Cursor CLI**.
 
 One shared model catalog. Each model has a **home CLI**. The switcher is a separate process (adjacent pane or another window). The coding terminal stays the same window; the operator binary is replaced.
 
-This is **not** a fork of [txcript](https://github.com/skillsynchq/txcript). Txcript converts transcripts. Baton is the control plane: catalog, CLI registration, pane supervisor, and `txcript continue --no-resume` on harness hops.
+**Built on [txcript](https://github.com/skillsynchq/txcript)** (Apache-2.0, [Skillsync](https://github.com/skillsynchq)). Txcript converts a session into another harness’s native format and writes it where that CLI can `--resume`. Baton does not convert transcripts. It is the control plane: catalog, CLI registration, pane supervisor, and `txcript continue --no-resume` on a harness hop. Not a fork.
 
 Apache-2.0.
 
@@ -137,4 +137,6 @@ node bin/baton.js --version
 
 ## License
 
-Apache License 2.0. Txcript is a separate Apache-2.0 project; use it as a CLI dependency, do not fork it into this repo.
+Apache License 2.0. See `LICENSE` and `NOTICE`.
+
+Cross-harness hops require the [txcript](https://github.com/skillsynchq/txcript) CLI, a separate Apache-2.0 project by Skillsync. Install it yourself; this repo does not vendor or fork it.
