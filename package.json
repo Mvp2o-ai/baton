@@ -1,0 +1,39 @@
+{
+  "name": "homeswitch",
+  "version": "0.1.0",
+  "description": "Sidecar model switcher for Claude Code, Codex, and Cursor CLI. Same terminal pane, new home harness.",
+  "license": "Apache-2.0",
+  "bin": {
+    "homeswitch": "bin/homeswitch.js"
+  },
+  "files": [
+    "bin",
+    "homeswitch",
+    "pyproject.toml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "homeswitch": "node bin/homeswitch.js",
+    "test": "python3 -m pytest -q"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/homeswitch/homeswitch.git"
+  },
+  "bugs": {
+    "url": "https://github.com/homeswitch/homeswitch/issues"
+  },
+  "homepage": "https://github.com/homeswitch/homeswitch#readme",
+  "keywords": [
+    "claude-code",
+    "codex",
+    "cursor",
+    "txcript",
+    "cli",
+    "sidecar"
+  ]
+}
