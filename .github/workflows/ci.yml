@@ -25,3 +25,12 @@ jobs:
           node-version: "20"
       - name: CLI via npm launcher
         run: node bin/baton.js --version
+
+  # Single required check for branch protection (matrix jobs become test (3.11), …).
+  CI:
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: All test jobs passed
+        run: test "${{ needs.test.result }}" = "success"

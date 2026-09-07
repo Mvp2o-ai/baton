@@ -2,6 +2,8 @@
 
 Baton is Apache-2.0. Issues and pull requests are welcome.
 
+`main` is protected: changes go through a PR, and the `CI` check must pass. Direct pushes are blocked. There is one maintainer (`wiltshirek`); GitHub does not count self-approvals, so required review count is zero until there is a second reviewer. Fork PRs are welcome.
+
 ## Setup
 
 ```sh
