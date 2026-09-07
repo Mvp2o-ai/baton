@@ -1,7 +1,10 @@
 """Load the model lineup each home CLI actually offers.
 
-Cursor: ``agent models`` (official).
-Codex: ``codex debug models`` JSON catalog (official).
+Each harness is limited to its home families — never the other products' models.
+
+Cursor: ``agent models``, then Composer + Grok flavors only.
+Codex: union of ``codex debug models --bundled`` and the live catalog.
+The live endpoint is entitlement-thinned; bundled is the CLI's full lineup.
 Claude Code: documented ``/model`` aliases plus user ``settings.json``
 ``availableModels`` / ``modelPicker`` — there is no non-interactive list command.
 """
@@ -20,7 +23,7 @@ from baton.catalog import (
     make_model,
 )
 from baton.clis import CliRecord
-from baton.dirs import claude_config_dir
+from baton.dirs import claude_config_dir, codex_home
 
 
 class CatalogError(RuntimeError):
@@ -86,12 +89,24 @@ def fetch_claude(_rec: CliRecord | None = None) -> list[Model]:
 def fetch_codex(rec: CliRecord) -> list[Model]:
     if not rec.bin:
         raise CatalogError("codex binary missing")
-    raw = _run_json(rec.bin, ["debug", "models"], timeout=12)
-    if raw is None:
-        raw = _run_json(rec.bin, ["debug", "models", "--bundled"], timeout=8)
-    if raw is None:
+    # Bundled first: the CLI still accepts these via --model.
+    # Live second: overlays account-specific slugs / display names.
+    # Using live alone drops most of the shipped lineup (remote catalog is
+    # an entitlement snapshot, not a merge).
+    catalogs: list[dict] = []
+    bundled = _run_json(rec.bin, ["debug", "models", "--bundled"], timeout=8)
+    if bundled:
+        catalogs.append(bundled)
+    live = _run_json(rec.bin, ["debug", "models"], timeout=12)
+    if live:
+        catalogs.append(live)
+    if not catalogs:
+        cache = _read_codex_models_cache()
+        if cache:
+            catalogs.append(cache)
+    if not catalogs:
         raise CatalogError("codex debug models returned no JSON")
-    return parse_codex_catalog(raw)
+    return merge_codex_catalogs(catalogs)
 
 
 def fetch_cursor(rec: CliRecord) -> list[Model]:
@@ -100,30 +115,75 @@ def fetch_cursor(rec: CliRecord) -> list[Model]:
     proc = _run(rec.bin, ["models"], timeout=20)
     if proc.returncode != 0:
         raise CatalogError((proc.stderr or proc.stdout or "agent models failed").strip()[:300])
-    rows = parse_agent_models(proc.stdout or "")
+    rows = cursor_home_models(parse_agent_models(proc.stdout or ""))
     if not rows:
-        raise CatalogError("agent models printed no rows")
+        raise CatalogError("agent models had no Composer/Grok rows")
     return rows
 
 
 def parse_codex_catalog(raw: dict) -> list[Model]:
-    items = raw.get("models")
-    if not isinstance(items, list):
+    return merge_codex_catalogs([raw])
+
+
+def merge_codex_catalogs(catalogs: list[dict]) -> list[Model]:
+    """Union catalogs by slug. Later catalogs overlay earlier ones.
+
+    ``visibility: none`` is hidden from picker and APIs — skip those.
+    ``hide`` is TUI-only; ``codex --model <slug>`` still works, so keep them.
+    """
+    ranked: dict[str, tuple[int, Model]] = {}
+    saw_models_key = False
+    for raw in catalogs:
+        items = raw.get("models")
+        if not isinstance(items, list):
+            continue
+        saw_models_key = True
+        for item in items:
+            parsed = _codex_item(item)
+            if parsed is None:
+                continue
+            slug, priority, model = parsed
+            ranked[slug] = (priority, model)
+    if not saw_models_key:
         raise CatalogError("codex catalog missing models[]")
-    out: list[Model] = []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("visibility") or "list") != "list":
-            continue
-        slug = str(item.get("slug") or "").strip()
-        if not slug:
-            continue
-        label = str(item.get("display_name") or slug)
-        out.append(make_model(HARNESS_CODEX, slug, label))
-    if not out:
+    if not ranked:
         raise CatalogError("codex catalog had no listed models")
-    return out
+    rows = [(priority, slug, model) for slug, (priority, model) in ranked.items()]
+    rows.sort(key=lambda row: (row[0], row[1]))
+    return [model for _, _, model in rows]
+
+
+def _codex_item(item: object) -> tuple[str, int, Model] | None:
+    if not isinstance(item, dict):
+        return None
+    vis = str(item.get("visibility") or "list").strip().lower()
+    if vis == "none":
+        return None
+    slug = str(item.get("slug") or "").strip()
+    if not slug:
+        return None
+    label = str(item.get("display_name") or slug)
+    try:
+        priority = int(item.get("priority") if item.get("priority") is not None else 99)
+    except (TypeError, ValueError):
+        priority = 99
+    return slug, priority, make_model(HARNESS_CODEX, slug, label)
+
+
+# Cursor's home families. ``agent models`` also lists GPT/Claude/etc.; those
+# belong to Codex and Claude Code, not this harness.
+CURSOR_HOME_FAMILIES = ("composer", "grok")
+
+
+def is_cursor_home_model(slug: str) -> bool:
+    for token in slug.lower().replace("_", "-").split("-"):
+        if token.startswith(CURSOR_HOME_FAMILIES):
+            return True
+    return False
+
+
+def cursor_home_models(rows: list[Model]) -> list[Model]:
+    return [row for row in rows if is_cursor_home_model(row.provider_model)]
 
 
 def parse_agent_models(text: str) -> list[Model]:
@@ -143,6 +203,17 @@ def parse_agent_models(text: str) -> list[Model]:
         seen.add(slug)
         out.append(make_model(HARNESS_CURSOR, slug, label))
     return out
+
+
+def _read_codex_models_cache() -> dict | None:
+    path = codex_home() / "models_cache.json"
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def _read_claude_user_settings() -> dict:

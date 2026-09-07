@@ -297,19 +297,63 @@ def test_parse_agent_models():
     assert rows[1].label == "Composer 2.5"
 
 
-def test_parse_codex_catalog_skips_hidden():
+def test_cursor_home_models_keeps_composer_and_grok():
+    from baton.catalog import make_model
+    from baton.provider_models import cursor_home_models, is_cursor_home_model
+
+    rows = [
+        make_model("cursor", "auto", "Auto"),
+        make_model("cursor", "composer-2.5", "Composer 2.5"),
+        make_model("cursor", "composer-2.5-fast", "Composer 2.5 Fast"),
+        make_model("cursor", "grok-4.6", "Grok 4.6"),
+        make_model("cursor", "grok-4.6-high", "Grok 4.6 High"),
+        make_model("cursor", "gpt-5.4", "GPT-5.4"),
+        make_model("cursor", "claude-opus-4.1", "Opus"),
+    ]
+    kept = [m.provider_model for m in cursor_home_models(rows)]
+    assert kept == ["composer-2.5", "composer-2.5-fast", "grok-4.6", "grok-4.6-high"]
+    assert is_cursor_home_model("composer-2")
+    assert is_cursor_home_model("grok-4")
+    assert not is_cursor_home_model("auto")
+    assert not is_cursor_home_model("gpt-5")
+
+
+def test_parse_codex_catalog_keeps_hide_skips_none():
     from baton.provider_models import parse_codex_catalog
 
     rows = parse_codex_catalog(
         {
             "models": [
-                {"slug": "gpt-5.6-sol", "display_name": "GPT-5.6-Sol", "visibility": "list"},
-                {"slug": "gpt-5.4", "display_name": "GPT-5.4", "visibility": "hide"},
+                {"slug": "gpt-5.6-sol", "display_name": "GPT-5.6-Sol", "visibility": "list", "priority": 6},
+                {"slug": "gpt-5.4", "display_name": "GPT-5.4", "visibility": "hide", "priority": 16},
+                {"slug": "internal", "display_name": "Internal", "visibility": "none", "priority": 1},
             ]
         }
     )
-    assert [m.provider_model for m in rows] == ["gpt-5.6-sol"]
+    assert [m.provider_model for m in rows] == ["gpt-5.6-sol", "gpt-5.4"]
     assert rows[0].harness == "codex"
+
+
+def test_merge_codex_catalogs_keeps_bundled_when_live_is_thin():
+    from baton.provider_models import merge_codex_catalogs
+
+    bundled = {
+        "models": [
+            {"slug": "gpt-6-astra", "display_name": "GPT-6-Astra", "visibility": "list", "priority": 1},
+            {"slug": "gpt-5.6-sol", "display_name": "GPT-5.6-Sol", "visibility": "list", "priority": 6},
+            {"slug": "gpt-5.2", "display_name": "GPT-5.2", "visibility": "list", "priority": 29},
+        ]
+    }
+    live = {
+        "models": [
+            {"slug": "gpt-5.6-luna", "display_name": "GPT-5.6-Luna", "visibility": "list", "priority": 8},
+            {"slug": "gpt-5.6-sol", "display_name": "Sol (account)", "visibility": "list", "priority": 6},
+        ]
+    }
+    rows = merge_codex_catalogs([bundled, live])
+    slugs = [m.provider_model for m in rows]
+    assert slugs == ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-luna", "gpt-5.2"]
+    assert rows[1].label == "Sol (account)"
 
 
 def test_claude_allowlist(monkeypatch, tmp_path):

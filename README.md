@@ -60,7 +60,7 @@ Inside Claude, Codex, or Cursor, type **`/baton`** (or `/baton list`). The model
 
 Homes:
 
-Each enabled CLI contributes **its** models. Claude Code uses the documented `/model` aliases (plus `settings.json` `availableModels` / `modelPicker`). Codex uses `codex debug models`. Cursor uses `agent models`. Picking a row always launches **that** CLI with that `--model` id.
+Each enabled CLI contributes **its home models only**. Claude Code: documented `/model` aliases (plus `settings.json` `availableModels` / `modelPicker`). Codex: union of `codex debug models --bundled` and the live catalog (live is entitlement-thinned). Cursor: Composer and Grok flavors from `agent models` — not the rest of Cursor's kitchen-sink list. Picking a row always launches **that** CLI with that `--model` id.
 
 No desktop apps. Cursor IDE `state.vscdb` is out of scope.
 
