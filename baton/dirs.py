@@ -1,7 +1,8 @@
 """Canonical on-disk roots for Claude Code, Codex, and Cursor CLI.
 
-Paths follow vendor docs and txcript store defaults (checked 2026-09).
-Baton never writes into these trees itself — txcript and the home CLIs do.
+Session trees are owned by the home CLIs and txcript. Baton also writes
+managed `/baton` slash stubs and prompt hooks into each CLI's config
+directory (`<!-- baton-managed -->`); it skips files you already own.
 """
 
 from __future__ import annotations

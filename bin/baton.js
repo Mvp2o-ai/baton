@@ -9,7 +9,14 @@ const env = { ...process.env };
 env.PYTHONPATH = root + path.delimiter + (env.PYTHONPATH || "");
 
 function pickPython() {
-  const candidates = [process.env.BATON_PYTHON, "python3", "python"].filter(Boolean);
+  const candidates = [
+    process.env.BATON_PYTHON,
+    "python3",
+    "python",
+    "/opt/homebrew/bin/python3",
+    "/usr/local/bin/python3",
+    "/usr/bin/python3",
+  ].filter(Boolean);
   for (const bin of candidates) {
     const result = spawnSync(
       bin,
@@ -26,7 +33,7 @@ function pickPython() {
 const python = pickPython();
 if (!python) {
   console.error("baton needs Python 3.11+ on PATH (python3 or python).");
-  console.error("Install Python, then retry: npm install -g @baton-cli/cli");
+  console.error("The npm package is a launcher; install Python, then: npm install -g @baton-cli/cli");
   process.exit(1);
 }
 

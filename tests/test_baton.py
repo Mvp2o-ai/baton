@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from baton.catalog import HARNESS_CLAUDE, get_model, models_from_dicts
+from baton.catalog import CLAUDE_BUILT_IN, HARNESS_CLAUDE, resolve, models_from_dicts
 from baton.clis import discover, which_first
 from baton.dirs import (
     claude_config_dir,
@@ -69,8 +69,9 @@ def test_catalog_rejects_desktop_harness():
 
 
 def test_get_model_lookup():
-    models = models_from_dicts(None)
-    assert get_model(models, "OPUS").harness == HARNESS_CLAUDE
+    models = list(CLAUDE_BUILT_IN)
+    assert resolve(models, "OPUS").harness == HARNESS_CLAUDE
+    assert resolve(models, "claude_code:sonnet").provider_model == "sonnet"
 
 
 def test_parse_txcript_resume_lines():
@@ -228,8 +229,163 @@ def test_launch_argv(tmp_path):
     assert "--model" in argv
 
 
+def test_init_exits_without_prompt(monkeypatch, tmp_path):
+    monkeypatch.setenv("BATON_HOME", str(tmp_path / "hs"))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
+    monkeypatch.setattr("baton.slash_install.cursor_user_home", lambda: tmp_path / "cursor")
+    monkeypatch.setattr("baton.slash_install.agents_home", lambda: tmp_path / "agents")
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
+    def boom(*_a, **_k):
+        raise AssertionError("init must not open the clis prompt")
+
+    monkeypatch.setattr("baton.cli._interactive_clis", boom)
+    from baton.cli import main
+
+    assert main(["init", "--no-attach"]) == 0
+    assert (tmp_path / "claude" / "commands" / "baton.md").is_file()
+    assert (tmp_path / "codex" / "hooks.json").is_file()
+    assert (tmp_path / "cursor" / "commands" / "baton.md").is_file()
+
+
+def test_set_aliases_parse():
+    from baton.cli import build_parser, cmd_attach, cmd_set
+    from baton.catalog import HARNESS_CLAUDE, HARNESS_CODEX, HARNESS_CURSOR
+
+    parser = build_parser()
+    for name in ("set", "list", "select", "sidecar"):
+        args = parser.parse_args([name])
+        assert args.func is cmd_set
+    bare = parser.parse_args([])
+    assert bare.func is cmd_attach
+    assert bare.harness is None
+    homes = {
+        "claude": HARNESS_CLAUDE,
+        "claude_code": HARNESS_CLAUDE,
+        "codex": HARNESS_CODEX,
+        "agent": HARNESS_CURSOR,
+        "cursor": HARNESS_CURSOR,
+        "agentx": HARNESS_CURSOR,
+    }
+    for name, harness in homes.items():
+        args = parser.parse_args([name])
+        assert args.func is cmd_attach
+        assert args.harness == harness
+
+
 def test_cli_models_json(monkeypatch, tmp_path):
     monkeypatch.setenv("BATON_HOME", str(tmp_path / "hs"))
+    monkeypatch.setattr("baton.cli.collect_catalog", lambda clis: ([], []))
     from baton.cli import main
 
     assert main(["models", "--json"]) == 0
+
+
+def test_parse_agent_models():
+    from baton.provider_models import parse_agent_models
+
+    text = (
+        "Available models\n\n"
+        "auto - Auto (default)\n"
+        "composer-2.5 - Composer 2.5\n"
+        "composer-2.5-fast - Composer 2.5 Fast\n"
+    )
+    rows = parse_agent_models(text)
+    assert [m.provider_model for m in rows] == ["auto", "composer-2.5", "composer-2.5-fast"]
+    assert rows[1].harness == "cursor"
+    assert rows[1].label == "Composer 2.5"
+
+
+def test_parse_codex_catalog_skips_hidden():
+    from baton.provider_models import parse_codex_catalog
+
+    rows = parse_codex_catalog(
+        {
+            "models": [
+                {"slug": "gpt-5.6-sol", "display_name": "GPT-5.6-Sol", "visibility": "list"},
+                {"slug": "gpt-5.4", "display_name": "GPT-5.4", "visibility": "hide"},
+            ]
+        }
+    )
+    assert [m.provider_model for m in rows] == ["gpt-5.6-sol"]
+    assert rows[0].harness == "codex"
+
+
+def test_claude_allowlist(monkeypatch, tmp_path):
+    from baton.provider_models import fetch_claude
+
+    settings = tmp_path / "settings.json"
+    settings.write_text('{"availableModels": ["sonnet", "haiku"]}\n')
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    rows = fetch_claude()
+    ids = {m.provider_model for m in rows}
+    assert "sonnet" in ids
+    assert "haiku" in ids
+    assert "opus" not in ids
+
+
+def test_baton_slash_prompt_match():
+    from baton.hook import is_baton_invocation, prompt_is_baton, reply_json
+
+    assert prompt_is_baton("/baton list")
+    assert prompt_is_baton("/baton")
+    assert prompt_is_baton("$baton")
+    assert prompt_is_baton("/prompts:baton")
+    assert not prompt_is_baton("please baton list the files")
+    assert not prompt_is_baton("list")
+    assert is_baton_invocation({"command_name": "baton-list", "prompt": "hello"})
+    assert reply_json("cursor", blocked=True, reason="x") == {
+        "continue": False,
+        "user_message": "x",
+    }
+    assert reply_json("codex", blocked=True, reason="x")["decision"] == "block"
+
+
+def test_slash_install_skips_user_owned_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
+    monkeypatch.setattr("baton.slash_install.cursor_user_home", lambda: tmp_path / "cursor")
+    monkeypatch.setattr("baton.slash_install.agents_home", lambda: tmp_path / "agents")
+    owned = tmp_path / "claude" / "commands" / "baton.md"
+    owned.parent.mkdir(parents=True)
+    owned.write_text("# my command\n")
+    from baton.slash_install import ensure_codex_hooks_feature, install
+
+    install()
+    assert owned.read_text() == "# my command\n"
+    install()
+    import json
+
+    settings = json.loads((tmp_path / "claude" / "settings.json").read_text())
+    assert len(settings["hooks"]["UserPromptSubmit"]) == 1
+    assert len(settings["hooks"]["UserPromptExpansion"]) == 2
+    text = ensure_codex_hooks_feature("[other]\nx = 1\n")
+    assert "codex_hooks = true" in text
+    again = ensure_codex_hooks_feature(text)
+    assert again.count("codex_hooks") == 1
+
+
+def test_line_tracker_picks_baton_enter():
+    from baton.ptyctl import LineTracker
+
+    t = LineTracker()
+    forwarded, pick = t.feed(b"/baton\r")
+    assert forwarded == b"/baton"
+    assert pick is True
+
+    t = LineTracker()
+    forwarded, pick = t.feed(b"hello\r")
+    assert forwarded == b"hello\r"
+    assert pick is False
+
+    t = LineTracker()
+    t.feed(b"/bat")
+    forwarded, pick = t.feed(b"on\n")
+    assert forwarded == b"on"
+    assert pick is True
+
+    t = LineTracker()
+    forwarded, pick = t.feed(b"$baton\r")
+    assert pick is True
+    assert forwarded == b"$baton"

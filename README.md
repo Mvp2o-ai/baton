@@ -10,7 +10,16 @@ Apache-2.0.
 
 ## Install
 
-Requires **Python 3.11+**. The npm package is a thin launcher. The command is `baton`. Unscoped npm `baton` and PyPI `baton` / `baton-cli` belong to other projects, so this one publishes as `@baton-cli/cli` and `tty-baton`.
+Install like any other CLI. Unscoped npm `baton` belongs to another project, so this one is `@baton-cli/cli`. The binary name is still `baton`. Python 3.11+ must be on PATH (Homebrew `python3` is fine); the npm package is the launcher plus the Python CLI.
+
+From this repo (until the package is on the public registry):
+
+```sh
+npm install -g .
+baton init
+```
+
+Once published:
 
 ```sh
 npm install -g @baton-cli/cli
@@ -20,9 +29,6 @@ baton init
 Other options:
 
 ```sh
-# from this repo
-npm install -g .
-
 # pip
 python3 -m pip install --user .
 # or, once published: python3 -m pip install --user tty-baton
@@ -41,38 +47,20 @@ cargo install --git https://github.com/skillsynchq/txcript txcript-cli
 
 ## Quick start
 
-Terminal A (the coding pane):
-
 ```sh
 cd /path/to/repo
-baton clis          # toggle detected CLIs; repeat anytime
-baton attach --model opus
+baton claude     # or: baton codex   baton agent
 ```
 
-Terminal B (the product / sidecar):
+First run writes `~/.baton` and installs `/baton` slash hooks, then this terminal becomes that CLI. Same for `baton`, `baton attach`, and `baton init` (init prints the CLI table, then attaches).
 
-```sh
-baton sidecar
-# type: gpt
-# type: composer
-# type: opus
-```
+Inside Claude, Codex, or Cursor, type **`/baton`** (or `/baton list`). The model picker opens in this same terminal. Enter hops; `q` keeps the current CLI.
 
-Or from any shell:
-
-```sh
-baton model gpt
-baton status
-baton doctor
-```
+`baton set` in another terminal is a backup. `baton clis` toggles homes if you need to.
 
 Homes:
 
-| Catalog id | Provider model (default) | Home harness | Binary |
-|---|---|---|---|
-| `opus` `sonnet` `haiku` | Claude models | `claude_code` | `claude` |
-| `gpt` `codex` | GPT / Codex models | `codex` | `codex` |
-| `composer` | Cursor models | `cursor` | `agent` |
+Each enabled CLI contributes **its** models. Claude Code uses the documented `/model` aliases (plus `settings.json` `availableModels` / `modelPicker`). Codex uses `codex debug models`. Cursor uses `agent models`. Picking a row always launches **that** CLI with that `--model` id.
 
 No desktop apps. Cursor IDE `state.vscdb` is out of scope.
 
@@ -113,23 +101,23 @@ Cursor’s documented install drops `agent` in `~/.local/bin`. That directory is
 
 | Command | Purpose |
 |---|---|
-| `baton init` | Write config and register detected CLIs |
-| `baton clis` | Interactive enable/disable (anytime) |
-| `baton attach` | Supervisor in **this** tty; spawns the home CLI |
-| `baton sidecar` | Picker UI that sends `set_model` |
-| `baton model <id>` | Switch the attached pane |
-| `baton model gpt --range 5-` | Hop with a txcript message range |
+| `baton` / `baton attach` | Ensure config + slash hooks, then take over this tty |
+| `baton claude` / `codex` / `agent` | Same, starting on that home (`cursor` and `agentx` are aliases for agent) |
+| `baton init` | Print the CLI table, then attach (`--no-attach` to skip) |
+| `baton clis` | Toggle homes (optional) |
+| `baton set` | Pick a live model and switch the attached pane (`list`, `select`, `sidecar` are aliases) |
+| `baton model <id>` | Switch the attached pane by id (`claude_code:opus`, or a unique `--model` slug) |
+| `baton models` | Print the live catalog (non-interactive) |
 | `baton status` | Attached panes |
 | `baton sessions` | Native sessions on disk for this directory |
 | `baton doctor` | CLIs, txcript, directories |
 | `baton detach` | Stop the supervisor |
-| `baton models` | Catalog |
 
---json works on `baton models --json`, `status`, `sessions`, `doctor`, and `clis list`.
+`--json` works on `baton models --json`, `status`, `sessions`, `doctor`, and `clis list`.
 
 ## How a switch works
 
-1. Sidecar sends `{ "op": "set_model", "model": "gpt" }` on a Unix socket under `~/.baton/sockets/`.
+1. `/baton list` in the home CLI (or `baton set` from another tty) sends `{ "op": "pick" }` or `{ "op": "set_model", ... }` on a Unix socket under `~/.baton/sockets/`.
 2. Supervisor stops the current CLI (SIGTERM).
 3. If the home harness changed: `txcript continue <id> --from <src> --with <dst> --no-resume`.
 4. Supervisor respawns the **registered** binary with `--model` / `resume` flags documented for that CLI.

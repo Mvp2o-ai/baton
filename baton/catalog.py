@@ -9,10 +9,26 @@ HARNESS_CURSOR = "cursor"
 
 SUPPORTED_HARNESSES = (HARNESS_CLAUDE, HARNESS_CODEX, HARNESS_CURSOR)
 
+# CLI names that skip the starting picker and land on that home.
+HOME_COMMANDS = {
+    "claude": HARNESS_CLAUDE,
+    "claude_code": HARNESS_CLAUDE,
+    "codex": HARNESS_CODEX,
+    "agent": HARNESS_CURSOR,
+    "cursor": HARNESS_CURSOR,
+    "agentx": HARNESS_CURSOR,
+}
+
+HARNESS_LABELS = {
+    HARNESS_CLAUDE: "Claude Code",
+    HARNESS_CODEX: "Codex",
+    HARNESS_CURSOR: "Cursor CLI",
+}
+
 
 @dataclass(frozen=True)
 class Model:
-    """One row in the shared catalog: a picker id plus its home CLI harness."""
+    """One picker row: the home CLI plus the id that CLI's ``--model`` accepts."""
 
     id: str
     provider_model: str
@@ -20,32 +36,52 @@ class Model:
     label: str = ""
 
     def display_label(self) -> str:
-        return self.label or self.id
+        return self.label or self.provider_model or self.id
+
+    @property
+    def key(self) -> str:
+        return f"{self.harness}:{self.provider_model}"
 
 
-DEFAULT_MODELS: tuple[Model, ...] = (
-    Model("opus", "claude-opus-4-1", HARNESS_CLAUDE, "Opus"),
-    Model("sonnet", "claude-sonnet-4-5", HARNESS_CLAUDE, "Sonnet"),
-    Model("haiku", "claude-haiku-4-5", HARNESS_CLAUDE, "Haiku"),
-    Model("gpt", "gpt-5", HARNESS_CODEX, "GPT"),
-    Model("codex", "gpt-5-codex", HARNESS_CODEX, "Codex"),
-    Model("composer", "composer-2.5", HARNESS_CURSOR, "Composer"),
+# Official Claude Code ``/model`` aliases (code.claude.com/docs/en/model-config).
+# Claude Code has no non-interactive list command; these are the documented lineup.
+CLAUDE_BUILT_IN: tuple[Model, ...] = (
+    Model("claude_code:opus", "opus", HARNESS_CLAUDE, "Opus"),
+    Model("claude_code:sonnet", "sonnet", HARNESS_CLAUDE, "Sonnet"),
+    Model("claude_code:haiku", "haiku", HARNESS_CLAUDE, "Haiku"),
+    Model("claude_code:fable", "fable", HARNESS_CLAUDE, "Fable"),
+    Model("claude_code:best", "best", HARNESS_CLAUDE, "Best"),
+    Model("claude_code:sonnet[1m]", "sonnet[1m]", HARNESS_CLAUDE, "Sonnet 1M"),
+    Model("claude_code:opus[1m]", "opus[1m]", HARNESS_CLAUDE, "Opus 1M"),
+    Model("claude_code:opusplan", "opusplan", HARNESS_CLAUDE, "Opus plan"),
 )
+
+
+def make_model(harness: str, provider_model: str, label: str = "") -> Model:
+    if harness not in SUPPORTED_HARNESSES:
+        raise ValueError(f"unsupported harness {harness!r}")
+    provider = str(provider_model).strip()
+    if not provider:
+        raise ValueError("empty provider model")
+    return Model(
+        id=f"{harness}:{provider}",
+        provider_model=provider,
+        harness=harness,
+        label=str(label or ""),
+    )
 
 
 def models_from_dicts(rows: list[dict] | None) -> list[Model]:
     if not rows:
-        return list(DEFAULT_MODELS)
+        return []
     out: list[Model] = []
     for row in rows:
         harness = str(row["harness"])
-        if harness not in SUPPORTED_HARNESSES:
-            raise ValueError(f"unsupported harness {harness!r} for model {row.get('id')}")
+        provider = str(row.get("provider_model") or row.get("id") or "")
         out.append(
-            Model(
-                id=str(row["id"]),
-                provider_model=str(row["provider_model"]),
-                harness=harness,
+            make_model(
+                harness,
+                provider,
                 label=str(row.get("label") or ""),
             )
         )
@@ -64,10 +100,26 @@ def models_to_dicts(models: list[Model]) -> list[dict]:
     ]
 
 
+def resolve(models: list[Model], needle: str) -> Model:
+    text = needle.strip()
+    if not text:
+        raise KeyError("empty model id")
+    lower = text.lower()
+    exact_key = [m for m in models if m.key.lower() == lower or m.id.lower() == lower]
+    if len(exact_key) == 1:
+        return exact_key[0]
+    if len(exact_key) > 1:
+        raise KeyError(f"ambiguous model {needle!r}")
+    by_provider = [m for m in models if m.provider_model.lower() == lower]
+    if len(by_provider) == 1:
+        return by_provider[0]
+    if len(by_provider) > 1:
+        homes = ", ".join(m.key for m in by_provider)
+        raise KeyError(f"ambiguous model {needle!r}. pick one of: {homes}")
+    known = ", ".join(m.key for m in models[:12])
+    more = "" if len(models) <= 12 else f" … +{len(models) - 12}"
+    raise KeyError(f"unknown model {needle!r}. catalog: {known}{more}")
+
+
 def get_model(models: list[Model], model_id: str) -> Model:
-    needle = model_id.strip().lower()
-    for model in models:
-        if model.id.lower() == needle:
-            return model
-    known = ", ".join(m.id for m in models)
-    raise KeyError(f"unknown model {model_id!r}. catalog: {known}")
+    return resolve(models, model_id)

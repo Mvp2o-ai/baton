@@ -3,9 +3,11 @@ from __future__ import annotations
 import sys
 
 from baton.bus import send_request
-from baton.catalog import get_model
+from baton.catalog import Model, resolve
 from baton.config import load_config
 from baton.panes import list_panes
+from baton.picker import pick
+from baton.provider_models import collect_catalog
 
 
 def default_pane_id() -> str:
@@ -18,15 +20,47 @@ def default_pane_id() -> str:
     raise RuntimeError(f"multiple panes attached ({ids}). pass --pane <id>.")
 
 
+def request_pick(pane_id: str | None = None) -> dict:
+    pid = pane_id or default_pane_id()
+    resp = send_request(pid, {"op": "pick"}, timeout=3.0)
+    if not resp.get("ok"):
+        raise RuntimeError(resp.get("error") or "pick failed")
+    return resp
+
+
+def choose_model(*, status_lines: list[str] | None = None) -> Model | None:
+    cfg = load_config()
+    while True:
+        models, errors = collect_catalog(cfg.clis)
+        result = pick(models, errors=errors, status_lines=status_lines)
+        if result.quit:
+            return None
+        if result.refresh or result.model is None:
+            continue
+        return result.model
+
+
 def set_model(
-    model_id: str,
+    model: Model | str,
     pane_id: str | None = None,
     span: str | None = None,
+    catalog: list[Model] | None = None,
 ) -> dict:
-    cfg = load_config()
-    get_model(cfg.models, model_id)
+    if isinstance(model, str):
+        if catalog is None:
+            cfg = load_config()
+            catalog, errors = collect_catalog(cfg.clis)
+            if errors and not catalog:
+                raise RuntimeError("; ".join(errors))
+        model = resolve(catalog, model)
     pid = pane_id or default_pane_id()
-    payload: dict = {"op": "set_model", "model": model_id}
+    payload: dict = {
+        "op": "set_model",
+        "model": model.key,
+        "harness": model.harness,
+        "provider_model": model.provider_model,
+        "label": model.label,
+    }
     if span:
         payload["range"] = span
     resp = send_request(pid, payload, timeout=8.0)
@@ -35,44 +69,32 @@ def set_model(
     return resp
 
 
-def sidecar_loop() -> int:
+def set_loop() -> int:
     cfg = load_config()
-    print("baton sidecar — type a model id, ls, status, or q")
-    print("models: " + ", ".join(f"{m.id} ({m.harness})" for m in cfg.models))
     while True:
-        panes = list_panes()
-        if panes:
-            print()
-            for pane in panes:
-                print(
-                    f"  {pane.pane_id}  {pane.thread_id}  {pane.model_id} @ {pane.harness}"
-                    f"  {'idle' if pane.idle else 'live'}"
-                )
-        else:
-            print("\n  (no attached panes)")
-        try:
-            line = input("> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
+        models, errors = collect_catalog(cfg.clis)
+        status = _status_lines()
+        result = pick(models, errors=errors, status_lines=status)
+        if result.quit:
             return 0
-        if not line:
+        if result.refresh or result.model is None:
             continue
-        if line in {"q", "quit", "exit"}:
-            return 0
-        if line in {"ls", "list"}:
-            continue
-        if line.startswith("status"):
-            parts = line.split()
-            try:
-                pid = parts[1] if len(parts) > 1 else default_pane_id()
-                print(send_request(pid, {"op": "status"}))
-            except Exception as exc:  # noqa: BLE001
-                print(f"error: {exc}", file=sys.stderr)
-            continue
-        model_id = line.split()[0]
         try:
-            get_model(cfg.models, model_id)
-            resp = set_model(model_id)
-            print(f"queued {model_id} → pane {resp.get('pane_id') or default_pane_id()}")
+            resp = set_model(result.model)
+            print(
+                f"queued {result.model.display_label()} → {result.model.harness}  "
+                f"pane {resp.get('pane_id') or default_pane_id()}"
+            )
         except Exception as exc:  # noqa: BLE001
             print(f"error: {exc}", file=sys.stderr)
+
+
+def _status_lines() -> list[str]:
+    panes = list_panes()
+    if not panes:
+        return ["(no attached panes — run `baton attach` in the project terminal)"]
+    return [
+        f"{p.pane_id}  {p.thread_id}  {p.model_id} @ {p.harness}  "
+        f"{'idle' if p.idle else 'live'}"
+        for p in panes
+    ]
