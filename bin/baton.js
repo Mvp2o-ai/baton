@@ -33,7 +33,7 @@ function pickPython() {
 const python = pickPython();
 if (!python) {
   console.error("baton needs Python 3.11+ on PATH (python3 or python).");
-  console.error("The npm package is a launcher; install Python, then: npm install -g @baton-cli/cli");
+  console.error("The npm package is a launcher; install Python, then: npm install -g @batoncli/cli");
   process.exit(1);
 }
 

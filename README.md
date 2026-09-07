@@ -10,19 +10,17 @@ Apache-2.0.
 
 ## Install
 
-Install like any other CLI. Unscoped npm `baton` belongs to another project, so this one is `@baton-cli/cli`. The binary name is still `baton`. Python 3.11+ must be on PATH (Homebrew `python3` is fine); the npm package is the launcher plus the Python CLI.
-
-From this repo (until the package is on the public registry):
+Install like any other CLI. Unscoped npm `baton` belongs to another project, so this one is `@batoncli/cli`. The binary name is still `baton`. Python 3.11+ must be on PATH (Homebrew `python3` is fine); the npm package is the launcher plus the Python CLI.
 
 ```sh
-npm install -g .
+npm install -g @batoncli/cli
 baton init
 ```
 
-Once published:
+From a clone:
 
 ```sh
-npm install -g @baton-cli/cli
+npm install -g .
 baton init
 ```
 

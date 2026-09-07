@@ -18,8 +18,8 @@ PY
 need_python
 
 if command -v npm >/dev/null 2>&1; then
-  echo "Installing @baton-cli/cli with npm -g"
-  npm install -g @baton-cli/cli
+  echo "Installing @batoncli/cli with npm -g"
+  npm install -g @batoncli/cli
   echo "Run: baton init"
   exit 0
 fi

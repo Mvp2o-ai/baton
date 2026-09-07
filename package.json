@@ -1,5 +1,5 @@
 {
-  "name": "@baton-cli/cli",
+  "name": "@batoncli/cli",
   "version": "0.1.0",
   "description": "Sidecar model switcher for Claude Code, Codex, and Cursor CLI. Same terminal pane, new home harness.",
   "license": "Apache-2.0",
@@ -8,7 +8,7 @@
   },
   "files": [
     "bin",
-    "baton",
+    "baton/**/*.py",
     "scripts",
     "pyproject.toml",
     "README.md",
