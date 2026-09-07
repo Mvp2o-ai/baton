@@ -389,3 +389,44 @@ def test_line_tracker_picks_baton_enter():
     forwarded, pick = t.feed(b"$baton\r")
     assert pick is True
     assert forwarded == b"$baton"
+
+
+def test_style_respects_no_color(monkeypatch):
+    monkeypatch.setenv("NO_COLOR", "1")
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+    monkeypatch.delenv("CLICOLOR_FORCE", raising=False)
+    from baton.style import LOGO_PLAIN, gold, logo, wordmark
+
+    assert logo() == "\n".join(LOGO_PLAIN)
+    assert "BATON" in logo()
+    assert gold("BATON") == "BATON"
+    assert wordmark() == "●════● BATON"
+    assert "\x1b" not in logo()
+    assert "\x1b" not in wordmark()
+
+
+def test_style_force_color(monkeypatch):
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    from baton.style import GOLD, gold, logo, magenta, wordmark
+
+    colored = logo()
+    assert "BATON" in colored
+    assert "\x1b[38;5;171m" in colored
+    assert "\x1b[38;5;220m" in colored
+    assert gold("x") == f"\x1b[1m\x1b[38;5;{GOLD}mx\x1b[0m"
+    assert magenta("baton").startswith("\x1b")
+    assert "BATON" in wordmark()
+    assert "\x1b" in wordmark()
+
+
+def test_format_catalog_plain_without_tty(monkeypatch):
+    monkeypatch.setenv("NO_COLOR", "1")
+    from baton.catalog import CLAUDE_BUILT_IN
+    from baton.picker import format_catalog
+
+    text = format_catalog(list(CLAUDE_BUILT_IN)[:2])
+    assert "Claude Code" in text
+    assert "opus" in text
+    assert "\x1b" not in text
+

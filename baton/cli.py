@@ -16,6 +16,7 @@ from baton.panes import list_panes
 from baton.picker import format_catalog
 from baton.provider_models import collect_catalog
 from baton.sidecar import default_pane_id, set_loop, set_model
+from baton.style import brass, cyan, dim, err, heading, log, magenta, ok, print_logo
 from baton.supervisor import attach
 from baton.txcript_hop import find_txcript
 
@@ -29,20 +30,28 @@ def _emit(args: argparse.Namespace, payload, text: str) -> int:
 
 
 def _print_clis(cfg) -> str:
+    stream = sys.stdout
     lines = [
-        "CLI homes",
+        heading("CLI homes", stream=stream),
         "",
-        f"{'#':<4}{'on':<5}{'harness':<14}{'binary':<16}path",
+        dim(f"{'#':<4}{'on':<5}{'harness':<14}{'binary':<16}path", stream=stream),
     ]
     for i, harness in enumerate(SUPPORTED_HARNESSES, start=1):
         rec = cfg.clis[harness]
         mark = "x" if rec.enabled else " "
         binary = rec.names[0]
         path = rec.bin or "(not found)"
-        lines.append(f"{i:<4}[{mark}]  {harness:<14}{binary:<16}{path}")
+        row = f"{i:<4}[{mark}]  {harness:<14}{binary:<16}{path}"
+        if rec.enabled:
+            lines.append(brass(row, stream=stream))
+        else:
+            lines.append(dim(row, stream=stream))
     tx = find_txcript(cfg.txcript_bin)
     lines.append("")
-    lines.append(f"txcript: {tx or '(not found — needed for cross-harness hops)'}")
+    if tx:
+        lines.append(f"{cyan('txcript', stream=stream)}  {tx}")
+    else:
+        lines.append(err("txcript  (not found — needed for cross-harness hops)", stream=stream))
     return "\n".join(lines)
 
 
@@ -66,27 +75,27 @@ def cmd_clis(args: argparse.Namespace) -> int:
         return _interactive_clis(cfg)
     if args.action == "enable":
         if not args.harness:
-            print("baton clis enable <harness>", file=sys.stderr)
+            print(err("baton clis enable <harness>", stream=sys.stderr), file=sys.stderr)
             return 2
         set_enabled(cfg.clis, args.harness, True)
         save_config(cfg)
-        print(f"enabled {args.harness} ({cfg.clis[args.harness].bin})")
+        print(ok(f"enabled {args.harness} ({cfg.clis[args.harness].bin})"))
         return 0
     if args.action == "disable":
         if not args.harness:
-            print("baton clis disable <harness>", file=sys.stderr)
+            print(err("baton clis disable <harness>", stream=sys.stderr), file=sys.stderr)
             return 2
         set_enabled(cfg.clis, args.harness, False)
         save_config(cfg)
-        print(f"disabled {args.harness}")
+        print(dim(f"disabled {args.harness}"))
         return 0
     if args.action == "set":
         if not args.harness or not args.bin:
-            print("baton clis set <harness> --bin /path", file=sys.stderr)
+            print(err("baton clis set <harness> --bin /path", stream=sys.stderr), file=sys.stderr)
             return 2
         set_bin(cfg.clis, args.harness, args.bin)
         save_config(cfg)
-        print(f"set {args.harness} -> {cfg.clis[args.harness].bin} (enabled)")
+        print(ok(f"set {args.harness} -> {cfg.clis[args.harness].bin} (enabled)"))
         return 0
     if args.action == "refresh":
         cfg.clis = discover(cfg.clis)
@@ -96,7 +105,7 @@ def cmd_clis(args: argparse.Namespace) -> int:
             {"clis": {h: {"enabled": r.enabled, "bin": r.bin} for h, r in cfg.clis.items()}},
             _print_clis(cfg),
         )
-    print(f"unknown clis action {args.action}", file=sys.stderr)
+    print(err(f"unknown clis action {args.action}", stream=sys.stderr), file=sys.stderr)
     return 2
 
 
@@ -104,9 +113,9 @@ def _interactive_clis(cfg) -> int:
     while True:
         print(_print_clis(cfg))
         print()
-        print("1-3 toggle   a enable all found   q or enter to finish")
+        print(dim("1-3 toggle   a enable all found   q or enter to finish"))
         try:
-            line = input("clis> ").strip().lower()
+            line = input(magenta("clis> ")).strip().lower()
         except (EOFError, KeyboardInterrupt):
             print()
             save_config(cfg)
@@ -131,9 +140,9 @@ def _interactive_clis(cfg) -> int:
                     try:
                         set_enabled(cfg.clis, harness, True)
                     except RuntimeError as exc:
-                        print(f"error: {exc}", file=sys.stderr)
+                        print(err(f"error: {exc}", stream=sys.stderr), file=sys.stderr)
             continue
-        print("unknown — 1-3 toggle, a enable all, q finish", file=sys.stderr)
+        print(err("unknown — 1-3 toggle, a enable all, q finish", stream=sys.stderr), file=sys.stderr)
 
 
 def cmd_models(args: argparse.Namespace) -> int:
@@ -167,10 +176,10 @@ def cmd_model(args: argparse.Namespace) -> int:
     try:
         resp = set_model(args.model, args.pane, args.range)
         pane = resp.get("pane_id") or args.pane or default_pane_id()
-        print(f"queued {args.model} → pane {pane}")
+        print(ok(f"queued {args.model} → pane {pane}"))
         return 0
     except Exception as exc:  # noqa: BLE001
-        print(f"error: {exc}", file=sys.stderr)
+        print(err(f"error: {exc}", stream=sys.stderr), file=sys.stderr)
         return 1
 
 
@@ -185,7 +194,7 @@ def _ensure_ready(*, verbose: bool = False) -> tuple:
     except OSError as exc:
         installed = []
         if verbose:
-            print(f"slash commands: {exc}", file=sys.stderr)
+            print(err(f"slash commands: {exc}", stream=sys.stderr), file=sys.stderr)
     return cfg, installed
 
 
@@ -221,7 +230,7 @@ def cmd_sessions(args: argparse.Namespace) -> int:
     rows = []
     for harness in harnesses:
         if harness not in cfg.clis and harness not in SUPPORTED_HARNESSES:
-            print(f"unknown harness {harness}", file=sys.stderr)
+            print(err(f"unknown harness {harness}", stream=sys.stderr), file=sys.stderr)
             return 2
         for item in list_sessions(harness, cwd):
             rows.append(session_to_dict(item))
@@ -231,9 +240,10 @@ def cmd_sessions(args: argparse.Namespace) -> int:
     if not rows:
         print("no sessions found for this directory")
         return 0
-    print(f"{'harness':<14}{'session_id':<40}path")
+    print(dim(f"{'harness':<14}{'session_id':<40}path"))
     for row in rows:
-        print(f"{row['harness']:<14}{row['session_id']:<40}{row['path']}")
+        harness = cyan(f"{row['harness']:<14}")
+        print(f"{harness}{row['session_id']:<40}{row['path']}")
     return 0
 
 
@@ -242,12 +252,12 @@ def cmd_detach(args: argparse.Namespace) -> int:
         pid = args.pane or default_pane_id()
         resp = send_request(pid, {"op": "detach"})
         if not resp.get("ok"):
-            print(f"error: {resp.get('error')}", file=sys.stderr)
+            print(err(f"error: {resp.get('error')}", stream=sys.stderr), file=sys.stderr)
             return 1
-        print(f"detached pane {pid}")
+        print(ok(f"detached pane {pid}"))
         return 0
     except Exception as exc:  # noqa: BLE001
-        print(f"error: {exc}", file=sys.stderr)
+        print(err(f"error: {exc}", stream=sys.stderr), file=sys.stderr)
         return 1
 
 
@@ -257,10 +267,10 @@ def cmd_attach(args: argparse.Namespace) -> int:
     live = _already_attached(workdir)
     if live:
         pane = live[0]
-        print(
+        log(
             f"already attached here ({pane.pane_id} → {pane.model_id}). "
             f"type /baton in that terminal, or: baton detach",
-            file=sys.stderr,
+            kind="error",
         )
         return 1
     return attach(
@@ -288,17 +298,21 @@ def cmd_init(args: argparse.Namespace) -> int:
         }
         print(json.dumps(payload, indent=2))
         return 0
-    print(f"wrote {config_path()}")
+    skip_logo = not getattr(args, "no_attach", False) and sys.stdin.isatty()
+    if not skip_logo:
+        print_logo(file=sys.stdout, tagline="hand off the thread")
+        print()
+    print(dim(f"wrote {config_path()}"))
     print(_print_clis(cfg))
     if installed:
         print()
-        print("installed /baton slash commands for Claude, Codex, and Cursor.")
+        print(ok("installed /baton slash commands for Claude, Codex, and Cursor."))
     if getattr(args, "no_attach", False) or not sys.stdin.isatty():
         print()
-        print("next: cd /path/to/project && baton claude|codex|agent")
+        print(dim("next: cd /path/to/project && baton claude|codex|agent"))
         return 0
     print()
-    print("attaching this terminal…  /baton switches models.")
+    print(brass("attaching this terminal…  /baton switches models."))
     return cmd_attach(args)
 
 
@@ -436,7 +450,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return func(args)
     except (KeyError, RuntimeError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(err(f"error: {exc}", stream=sys.stderr), file=sys.stderr)
         return 1
 
 

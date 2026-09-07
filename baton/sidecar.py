@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import sys
-
 from baton.bus import send_request
 from baton.catalog import Model, resolve
 from baton.config import load_config
 from baton.panes import list_panes
 from baton.picker import pick
 from baton.provider_models import collect_catalog
+from baton.style import err, ok
 
 
 def default_pane_id() -> str:
@@ -82,11 +81,13 @@ def set_loop() -> int:
         try:
             resp = set_model(result.model)
             print(
-                f"queued {result.model.display_label()} → {result.model.harness}  "
-                f"pane {resp.get('pane_id') or default_pane_id()}"
+                ok(
+                    f"queued {result.model.display_label()} → {result.model.harness}  "
+                    f"pane {resp.get('pane_id') or default_pane_id()}"
+                )
             )
         except Exception as exc:  # noqa: BLE001
-            print(f"error: {exc}", file=sys.stderr)
+            print(err(f"error: {exc}", stream=sys.stderr), file=sys.stderr)
 
 
 def _status_lines() -> list[str]:

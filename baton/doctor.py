@@ -8,6 +8,7 @@ from pathlib import Path
 from baton.clis import discover
 from baton.config import load_config
 from baton.dirs import describe_all
+from baton.style import brass, cyan, dim, err, heading, ok
 from baton.txcript_hop import find_txcript
 
 
@@ -63,32 +64,37 @@ def collect_doctor(*, cwd: Path | None = None) -> dict:
 
 
 def format_doctor(report: dict) -> str:
+    stream = sys.stdout
+    tx = report["txcript"] or "(missing)"
     lines = [
-        f"python     {report['python']}",
-        f"platform   {report['platform']}",
-        f"cwd        {report['cwd']}",
-        f"txcript    {report['txcript'] or '(missing)'}",
+        heading("baton doctor", stream=stream),
+        f"{dim('python', stream=stream)}     {report['python']}",
+        f"{dim('platform', stream=stream)}   {report['platform']}",
+        f"{dim('cwd', stream=stream)}        {report['cwd']}",
+        f"{dim('txcript', stream=stream)}    {tx if report['txcript'] else err(tx, stream=stream)}",
         "",
-        "CLI homes:",
+        heading("CLI homes", stream=stream),
     ]
     for row in report["clis"]:
         mark = "on " if row["enabled"] else "off"
         path = row["bin"] or "not found"
-        lines.append(f"  [{mark}] {row['harness']:<14} {path}")
+        body = f"  [{mark}] {row['harness']:<14} {path}"
+        lines.append(brass(body, stream=stream) if row["enabled"] else dim(body, stream=stream))
     lines.append("")
-    lines.append("Session directories (for this cwd):")
+    lines.append(heading("Session directories (for this cwd)", stream=stream))
     for row in report["directories"]:
         flag = "yes" if row["sessions_exist"] else "no"
-        lines.append(f"  {row['harness']:<14} exists={flag:<3} {row['sessions']}")
-        lines.append(f"                 {row['notes']}")
+        harness = cyan(f"{row['harness']:<14}", stream=stream)
+        lines.append(f"  {harness} exists={flag:<3} {row['sessions']}")
+        lines.append(dim(f"                 {row['notes']}", stream=stream))
     if report["problems"]:
         lines.append("")
-        lines.append("problems:")
+        lines.append(err("problems:", stream=stream))
         for problem in report["problems"]:
-            lines.append(f"  - {problem}")
+            lines.append(err(f"  - {problem}", stream=stream))
     else:
         lines.append("")
-        lines.append("ok")
+        lines.append(ok("ok", stream=stream))
     return "\n".join(lines)
 
 

@@ -7,6 +7,7 @@ import sys
 from dataclasses import dataclass
 
 from baton.catalog import HARNESS_LABELS, Model, SUPPORTED_HARNESSES
+from baton.style import cyan, dim, err, heading, magenta, selected, wordmark
 
 
 REFRESH = object()
@@ -27,15 +28,15 @@ def format_catalog(models: list[Model], *, errors: list[str] | None = None) -> s
         rows = grouped.get(harness) or []
         if not rows:
             continue
-        lines.append(HARNESS_LABELS.get(harness, harness))
+        lines.append(heading(HARNESS_LABELS.get(harness, harness), stream=sys.stdout))
         for model in rows:
             lines.append(f"  {n:>3}  {model.provider_model:<36} {model.display_label()}")
             n += 1
         lines.append("")
     if errors:
-        lines.append("errors:")
-        for err in errors:
-            lines.append(f"  - {err}")
+        lines.append(err("errors:", stream=sys.stdout))
+        for item in errors:
+            lines.append(err(f"  - {item}", stream=sys.stdout))
     if n == 1:
         lines.append("no models — enable a CLI with `baton clis`")
     return "\n".join(lines).rstrip()
@@ -74,14 +75,15 @@ def _pick_numbered(
     errors: list[str] | None,
     status_lines: list[str] | None,
 ) -> PickResult:
+    print(wordmark(stream=sys.stdout))
     if status_lines:
-        print("\n".join(status_lines))
+        print("\n".join(dim(s, stream=sys.stdout) for s in status_lines))
         print()
     print(format_catalog(rows, errors=errors))
     print()
-    print("number to select, r refresh, q quit")
+    print(dim("number to select, r refresh, q quit", stream=sys.stdout))
     try:
-        line = input("> ").strip().lower()
+        line = input(magenta("baton> ", stream=sys.stdout)).strip().lower()
     except (EOFError, KeyboardInterrupt):
         print()
         return PickResult(quit=True)
@@ -93,7 +95,7 @@ def _pick_numbered(
         idx = int(line) - 1
         if 0 <= idx < len(rows):
             return PickResult(model=rows[idx])
-    print("not a selection", file=sys.stderr)
+    print(err("not a selection", stream=sys.stderr), file=sys.stderr)
     return PickResult()
 
 
@@ -176,12 +178,13 @@ def _draw(
     status_lines: list[str] | None,
 ) -> None:
     sys.stdout.write("\x1b[H\x1b[2J")
-    lines: list[str] = ["baton set — ↑↓ enter to switch  type to filter  r refresh  q quit", ""]
+    hint = dim("↑↓ enter to switch  type to filter  r refresh  q quit", stream=sys.stdout)
+    lines: list[str] = [f"{wordmark(stream=sys.stdout)}  {hint}", ""]
     if status_lines:
-        lines.extend(status_lines)
+        lines.extend(dim(s, stream=sys.stdout) for s in status_lines)
         lines.append("")
     if query:
-        lines.append(f"filter: {query}")
+        lines.append(f"{cyan('filter', stream=sys.stdout)} {query}")
         lines.append("")
     last_harness = None
     window = rows[scroll : scroll + height]
@@ -189,15 +192,18 @@ def _draw(
         abs_i = scroll + offset
         if model.harness != last_harness:
             last_harness = model.harness
-            lines.append(HARNESS_LABELS.get(model.harness, model.harness))
-        mark = ">" if abs_i == index else " "
-        lines.append(f" {mark} {model.provider_model:<36} {model.display_label()}")
+            lines.append(heading(HARNESS_LABELS.get(model.harness, model.harness), stream=sys.stdout))
+        row = f" {model.provider_model:<36} {model.display_label()}"
+        if abs_i == index:
+            lines.append(selected(f" ▶{row}", stream=sys.stdout))
+        else:
+            lines.append(dim(f"  {row}", stream=sys.stdout))
     if not rows:
-        lines.append("  (no models match)")
+        lines.append(dim("  (no models match)", stream=sys.stdout))
     if errors:
         lines.append("")
-        for err in errors:
-            lines.append(f"  ! {err}")
+        for item in errors:
+            lines.append(err(f"  ! {item}", stream=sys.stdout))
     sys.stdout.write("\n".join(lines) + "\n")
     sys.stdout.flush()
 

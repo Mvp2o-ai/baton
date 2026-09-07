@@ -19,6 +19,7 @@ from baton.launch import launch_argv
 from baton.panes import remove_pane, write_pane
 from baton.discover import latest_session
 from baton.provider_models import collect_catalog
+from baton.style import log, print_logo
 from baton.txcript_hop import TxcriptError, continue_session
 
 
@@ -186,7 +187,7 @@ class Supervisor:
         model = self.model
         rec = require_enabled(self.cfg.clis, model.harness)
         argv = launch_argv(rec, model, self.session_id)
-        print(f"baton: launching {' '.join(argv)}", file=sys.stderr)
+        log(f"launching {' '.join(argv)}")
         child, master = spawn_with_pty(argv, str(self.cwd))
         self._pty_master = master
         return child
@@ -214,11 +215,8 @@ class Supervisor:
         thread = threading.Thread(target=self._serve, name="baton-bus", daemon=True)
         thread.start()
         self.persist(idle=True)
-        print(
-            f"baton: pane {self.pane_id}  thread {self.thread_id}  "
-            f"type /baton in this terminal to switch models",
-            file=sys.stderr,
-        )
+        print_logo(tagline="hand off the thread  ·  /baton to switch models")
+        log(f"pane {self.pane_id}  thread {self.thread_id}")
         try:
             while not self.stop.is_set():
                 with self.lock:
@@ -232,11 +230,11 @@ class Supervisor:
                     try:
                         msg = self.apply_model(pending, span)
                     except (TxcriptError, RuntimeError, KeyError) as exc:
-                        print(f"baton: switch failed: {exc}", file=sys.stderr)
+                        log(f"switch failed: {exc}", kind="error")
                         self.persist(idle=True)
                         time.sleep(0.2)
                         continue
-                    print(f"baton: {msg}", file=sys.stderr)
+                    log(msg, kind="ok")
                 if picking:
                     self._restore_tty()
                     from baton.sidecar import choose_model
@@ -249,13 +247,13 @@ class Supervisor:
                     if chosen is not None:
                         try:
                             msg = self.apply_model(chosen)
-                            print(f"baton: {msg}", file=sys.stderr)
+                            log(msg, kind="ok")
                         except (TxcriptError, RuntimeError, KeyError) as exc:
-                            print(f"baton: switch failed: {exc}", file=sys.stderr)
+                            log(f"switch failed: {exc}", kind="error")
                 try:
                     self.child = self._spawn()
                 except RuntimeError as exc:
-                    print(f"baton: {exc}", file=sys.stderr)
+                    log(str(exc), kind="error")
                     return 1
                 self.persist(idle=False)
                 from baton.ptyctl import PICK
@@ -281,11 +279,7 @@ class Supervisor:
                     has_pending = self.pending_model is not None or self.pending_pick
                 if has_pending:
                     continue
-                print(
-                    "baton: operator exited. /baton list, `baton set`, "
-                    "or Ctrl-C to detach.",
-                    file=sys.stderr,
-                )
+                log("operator exited. /baton list, `baton set`, or Ctrl-C to detach.")
                 while not self.stop.is_set():
                     time.sleep(0.2)
                     with self.lock:
@@ -300,7 +294,7 @@ class Supervisor:
                 except subprocess.TimeoutExpired:
                     self.child.kill()
             self._restore_tty()
-            print("baton: detached", file=sys.stderr)
+            log("detached")
             return 130
         finally:
             self.stop.set()
@@ -328,17 +322,14 @@ def attach(
     if harness:
         catalog = [m for m in catalog if m.harness == harness]
     if not catalog:
-        print(
-            "error: "
-            + (
-                "; ".join(errors)
-                or (
-                    f"no models for {harness} — enable it with `baton clis`"
-                    if harness
-                    else "no models — enable a CLI with `baton clis`"
-                )
+        log(
+            "; ".join(errors)
+            or (
+                f"no models for {harness} — enable it with `baton clis`"
+                if harness
+                else "no models — enable a CLI with `baton clis`"
             ),
-            file=sys.stderr,
+            kind="error",
         )
         return 1
     if model_id:
