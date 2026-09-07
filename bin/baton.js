@@ -9,7 +9,7 @@ const env = { ...process.env };
 env.PYTHONPATH = root + path.delimiter + (env.PYTHONPATH || "");
 
 function pickPython() {
-  const candidates = [process.env.HOMESWITCH_PYTHON, "python3", "python"].filter(Boolean);
+  const candidates = [process.env.BATON_PYTHON, "python3", "python"].filter(Boolean);
   for (const bin of candidates) {
     const result = spawnSync(
       bin,
@@ -25,12 +25,12 @@ function pickPython() {
 
 const python = pickPython();
 if (!python) {
-  console.error("homeswitch needs Python 3.11+ on PATH (python3 or python).");
-  console.error("Install Python, then retry: npm install -g homeswitch");
+  console.error("baton needs Python 3.11+ on PATH (python3 or python).");
+  console.error("Install Python, then retry: npm install -g @baton-cli/cli");
   process.exit(1);
 }
 
-const child = spawn(python, ["-m", "homeswitch", ...process.argv.slice(2)], {
+const child = spawn(python, ["-m", "baton", ...process.argv.slice(2)], {
   stdio: "inherit",
   env,
   cwd: process.cwd(),

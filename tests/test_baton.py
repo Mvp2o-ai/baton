@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from homeswitch.catalog import HARNESS_CLAUDE, get_model, models_from_dicts
-from homeswitch.clis import discover, which_first
-from homeswitch.dirs import (
+from baton.catalog import HARNESS_CLAUDE, get_model, models_from_dicts
+from baton.clis import discover, which_first
+from baton.dirs import (
     claude_config_dir,
     claude_project_dir,
     codex_home,
@@ -15,9 +15,9 @@ from homeswitch.dirs import (
     cursor_workspace_hash,
     encode_claude_project,
 )
-from homeswitch.discover import _codex_id_from_name, list_sessions
-from homeswitch.launch import launch_argv
-from homeswitch.txcript_parse import parse_continue_output, strip_ansi
+from baton.discover import _codex_id_from_name, list_sessions
+from baton.launch import launch_argv
+from baton.txcript_parse import parse_continue_output, strip_ansi
 
 
 def test_encode_claude_project_replaces_non_alnum():
@@ -141,8 +141,8 @@ def test_discover_finds_fake_claude(tmp_path, monkeypatch):
 
 
 def test_launch_argv(tmp_path):
-    from homeswitch.catalog import Model
-    from homeswitch.clis import CliRecord
+    from baton.catalog import Model
+    from baton.clis import CliRecord
 
     rec = CliRecord("claude_code", ("claude",), True, str(tmp_path / "claude"))
     (tmp_path / "claude").write_text("x")
@@ -166,7 +166,7 @@ def test_launch_argv(tmp_path):
 
 
 def test_cli_models_json(monkeypatch, tmp_path):
-    monkeypatch.setenv("HOMESWITCH_HOME", str(tmp_path / "hs"))
-    from homeswitch.cli import main
+    monkeypatch.setenv("BATON_HOME", str(tmp_path / "hs"))
+    from baton.cli import main
 
     assert main(["models", "--json"]) == 0

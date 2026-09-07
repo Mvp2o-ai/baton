@@ -7,7 +7,7 @@ Sources: Claude Code sessions docs, OpenAI Codex `CODEX_HOME`, txcript 0.13 stor
 - Config: `$CLAUDE_CONFIG_DIR` or `~/.claude`
 - Transcripts: `<config>/projects/<encoded-cwd>/<session-id>.jsonl`
 - Encoding: non-alphanumeric → `-`. Very long paths are truncated with a hash suffix.
-- Some versions also use `<project>/sessions/<id>.jsonl`. Homeswitch lists both.
+- Some versions also use `<project>/sessions/<id>.jsonl`. Baton lists both.
 
 ## Codex CLI
 
@@ -23,4 +23,4 @@ Sources: Claude Code sessions docs, OpenAI Codex `CODEX_HOME`, txcript 0.13 stor
 - Binary: `agent` (also `cursor-agent`), often `~/.local/bin/agent`
 - Resume: `agent --resume=<id>`
 
-Cursor desktop Composer (`state.vscdb` under Application Support / `%APPDATA%`) is not a homeswitch home.
+Cursor desktop Composer (`state.vscdb` under Application Support / `%APPDATA%`) is not a supported home harness.

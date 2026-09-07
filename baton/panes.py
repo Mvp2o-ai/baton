@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from homeswitch.bus import PaneState
-from homeswitch.paths import panes_dir, sockets_dir, ensure_dirs
+from baton.bus import PaneState
+from baton.paths import panes_dir, sockets_dir, ensure_dirs
 
 
 def pane_file(pane_id: str) -> Path:

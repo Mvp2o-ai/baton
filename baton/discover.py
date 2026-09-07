@@ -5,8 +5,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from homeswitch.catalog import HARNESS_CLAUDE, HARNESS_CODEX, HARNESS_CURSOR
-from homeswitch.dirs import (
+from baton.catalog import HARNESS_CLAUDE, HARNESS_CODEX, HARNESS_CURSOR
+from baton.dirs import (
     claude_project_dir,
     codex_archived_sessions_dir,
     codex_sessions_dir,

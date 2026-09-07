@@ -5,9 +5,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from homeswitch.catalog import Model, models_from_dicts, models_to_dicts
-from homeswitch.clis import CliRecord, records_from_config, records_to_config
-from homeswitch.paths import config_path, ensure_dirs
+from baton.catalog import Model, models_from_dicts, models_to_dicts
+from baton.clis import CliRecord, records_from_config, records_to_config
+from baton.paths import config_path, ensure_dirs
 
 
 @dataclass

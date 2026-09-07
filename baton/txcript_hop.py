@@ -5,7 +5,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from homeswitch.txcript_parse import parse_continue_output
+from baton.txcript_parse import parse_continue_output
 
 
 class TxcriptError(RuntimeError):

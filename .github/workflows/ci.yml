@@ -24,4 +24,4 @@ jobs:
         with:
           node-version: "20"
       - name: CLI via npm launcher
-        run: node bin/homeswitch.js --version
+        run: node bin/baton.js --version

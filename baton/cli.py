@@ -5,17 +5,17 @@ import json
 import sys
 from pathlib import Path
 
-from homeswitch import __version__
-from homeswitch.bus import send_request
-from homeswitch.catalog import SUPPORTED_HARNESSES, get_model
-from homeswitch.clis import discover, set_bin, set_enabled
-from homeswitch.config import load_config, save_config
-from homeswitch.discover import list_sessions, session_to_dict
-from homeswitch.doctor import collect_doctor, dumps_report, format_doctor
-from homeswitch.panes import list_panes
-from homeswitch.sidecar import default_pane_id, set_model, sidecar_loop
-from homeswitch.supervisor import attach
-from homeswitch.txcript_hop import find_txcript
+from baton import __version__
+from baton.bus import send_request
+from baton.catalog import SUPPORTED_HARNESSES, get_model
+from baton.clis import discover, set_bin, set_enabled
+from baton.config import load_config, save_config
+from baton.discover import list_sessions, session_to_dict
+from baton.doctor import collect_doctor, dumps_report, format_doctor
+from baton.panes import list_panes
+from baton.sidecar import default_pane_id, set_model, sidecar_loop
+from baton.supervisor import attach
+from baton.txcript_hop import find_txcript
 
 
 def _emit(args: argparse.Namespace, payload, text: str) -> int:
@@ -64,7 +64,7 @@ def cmd_clis(args: argparse.Namespace) -> int:
         return _interactive_clis(cfg)
     if args.action == "enable":
         if not args.harness:
-            print("homeswitch clis enable <harness>", file=sys.stderr)
+            print("baton clis enable <harness>", file=sys.stderr)
             return 2
         set_enabled(cfg.clis, args.harness, True)
         save_config(cfg)
@@ -72,7 +72,7 @@ def cmd_clis(args: argparse.Namespace) -> int:
         return 0
     if args.action == "disable":
         if not args.harness:
-            print("homeswitch clis disable <harness>", file=sys.stderr)
+            print("baton clis disable <harness>", file=sys.stderr)
             return 2
         set_enabled(cfg.clis, args.harness, False)
         save_config(cfg)
@@ -80,7 +80,7 @@ def cmd_clis(args: argparse.Namespace) -> int:
         return 0
     if args.action == "set":
         if not args.harness or not args.bin:
-            print("homeswitch clis set <harness> --bin /path", file=sys.stderr)
+            print("baton clis set <harness> --bin /path", file=sys.stderr)
             return 2
         set_bin(cfg.clis, args.harness, args.bin)
         save_config(cfg)
@@ -236,7 +236,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     cfg = load_config()
     cfg.clis = discover(cfg.clis)
     save_config(cfg)
-    from homeswitch.paths import config_path
+    from baton.paths import config_path
 
     print(f"wrote {config_path()}")
     print(_print_clis(cfg))
@@ -247,10 +247,10 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="homeswitch",
+        prog="baton",
         description="Sidecar model switcher for Claude Code, Codex, and Cursor CLI.",
     )
-    parser.add_argument("--version", action="version", version=f"homeswitch {__version__}")
+    parser.add_argument("--version", action="version", version=f"baton {__version__}")
     json_parent = argparse.ArgumentParser(add_help=False)
     json_parent.add_argument("--json", action="store_true", help="machine-readable output")
     sub = parser.add_subparsers(dest="cmd", required=True)

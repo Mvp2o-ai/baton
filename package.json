@@ -1,33 +1,36 @@
 {
-  "name": "homeswitch",
+  "name": "@baton-cli/cli",
   "version": "0.1.0",
   "description": "Sidecar model switcher for Claude Code, Codex, and Cursor CLI. Same terminal pane, new home harness.",
   "license": "Apache-2.0",
   "bin": {
-    "homeswitch": "bin/homeswitch.js"
+    "baton": "bin/baton.js"
   },
   "files": [
     "bin",
-    "homeswitch",
+    "baton",
     "pyproject.toml",
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "homeswitch": "node bin/homeswitch.js",
+    "baton": "node bin/baton.js",
     "test": "python3 -m pytest -q"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/homeswitch/homeswitch.git"
+    "url": "git+https://github.com/baton-cli/baton.git"
   },
   "bugs": {
-    "url": "https://github.com/homeswitch/homeswitch/issues"
+    "url": "https://github.com/baton-cli/baton/issues"
   },
-  "homepage": "https://github.com/homeswitch/homeswitch#readme",
+  "homepage": "https://github.com/baton-cli/baton#readme",
   "keywords": [
     "claude-code",
     "codex",

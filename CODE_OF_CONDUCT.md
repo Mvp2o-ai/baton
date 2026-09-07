@@ -1,4 +1,4 @@
-# Homeswitch Code of Conduct
+# Baton Code of Conduct
 
 Be respectful. Harassment and personal attacks are not welcome.
 

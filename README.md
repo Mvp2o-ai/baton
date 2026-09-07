@@ -1,20 +1,20 @@
-# Homeswitch
+# Baton
 
 Sidecar model switcher for **Claude Code**, **Codex**, and **Cursor CLI**.
 
 One shared model catalog. Each model has a **home CLI**. The switcher is a separate process (adjacent pane or another window). The coding terminal stays the same window; the operator binary is replaced.
 
-This is **not** a fork of [txcript](https://github.com/skillsynchq/txcript). Txcript converts transcripts. Homeswitch is the control plane: catalog, CLI registration, pane supervisor, and `txcript continue --no-resume` on harness hops.
+This is **not** a fork of [txcript](https://github.com/skillsynchq/txcript). Txcript converts transcripts. Baton is the control plane: catalog, CLI registration, pane supervisor, and `txcript continue --no-resume` on harness hops.
 
 Apache-2.0.
 
 ## Install
 
-Requires **Python 3.11+**. The npm package is a thin launcher.
+Requires **Python 3.11+**. The npm package is a thin launcher. The command is `baton`. Unscoped npm `baton` and PyPI `baton` / `baton-cli` belong to other projects, so this one publishes as `@baton-cli/cli` and `tty-baton`.
 
 ```sh
-npm install -g homeswitch
-homeswitch init
+npm install -g @baton-cli/cli
+baton init
 ```
 
 Other options:
@@ -25,10 +25,13 @@ npm install -g .
 
 # pip
 python3 -m pip install --user .
+# or, once published: python3 -m pip install --user tty-baton
 
 # curl installer (uses npm if present, else pipx/pip)
-curl -fsSL https://raw.githubusercontent.com/homeswitch/homeswitch/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/baton-cli/baton/main/install.sh | bash
 ```
+
+[`@batonai/cli`](https://github.com/niketkal/baton) also installs a `baton` binary. If both are on PATH, whichever comes first wins. Their `.baton/` directory is project-local; this product's config is `~/.baton`.
 
 Cross-harness hops need the [txcript CLI](https://github.com/skillsynchq/txcript):
 
@@ -42,14 +45,14 @@ Terminal A (the coding pane):
 
 ```sh
 cd /path/to/repo
-homeswitch clis          # toggle detected CLIs; repeat anytime
-homeswitch attach --model opus
+baton clis          # toggle detected CLIs; repeat anytime
+baton attach --model opus
 ```
 
 Terminal B (the product / sidecar):
 
 ```sh
-homeswitch sidecar
+baton sidecar
 # type: gpt
 # type: composer
 # type: opus
@@ -58,9 +61,9 @@ homeswitch sidecar
 Or from any shell:
 
 ```sh
-homeswitch model gpt
-homeswitch status
-homeswitch doctor
+baton model gpt
+baton status
+baton doctor
 ```
 
 Homes:
@@ -75,7 +78,7 @@ No desktop apps. Cursor IDE `state.vscdb` is out of scope.
 
 ## Session directories
 
-Homeswitch **reads** these trees to list sessions and to recover an id after a CLI exits. Writes on a harness hop are done by **txcript**.
+Baton **reads** these trees to list sessions and to recover an id after a CLI exits. Writes on a harness hop are done by **txcript**.
 
 | Harness | Root | Session files | Relocate with |
 |---|---|---|---|
@@ -87,21 +90,21 @@ Claude project folder encoding (official): the absolute cwd with every non-alpha
 
 Codex also keeps a SQLite thread index under `CODEX_SQLITE_HOME` or `$CODEX_HOME` (`state_*.sqlite`). Txcript registers resume ids there when it writes a Codex copy.
 
-Cursor **CLI** chats are not Cursor **desktop**. Desktop Composer lives in `state.vscdb` under Application Support / `%APPDATA%`. Homeswitch does not touch that.
+Cursor **CLI** chats are not Cursor **desktop**. Desktop Composer lives in `state.vscdb` under Application Support / `%APPDATA%`. Baton does not touch that.
 
-`homeswitch doctor` prints the resolved paths for the current cwd.
+`baton doctor` prints the resolved paths for the current cwd.
 
 ## Config
 
-`~/.homeswitch/config.json` (or `$HOMESWITCH_HOME`).
+`~/.baton/config.json` (or `$BATON_HOME`).
 
 Register CLIs whenever you install a new one:
 
 ```sh
-homeswitch clis
-homeswitch clis enable cursor
-homeswitch clis set cursor --bin ~/.local/bin/agent
-homeswitch clis refresh
+baton clis
+baton clis enable cursor
+baton clis set cursor --bin ~/.local/bin/agent
+baton clis refresh
 ```
 
 Cursor’s documented install drops `agent` in `~/.local/bin`. That directory is searched even when it is missing from `PATH`.
@@ -110,23 +113,23 @@ Cursor’s documented install drops `agent` in `~/.local/bin`. That directory is
 
 | Command | Purpose |
 |---|---|
-| `homeswitch init` | Write config and register detected CLIs |
-| `homeswitch clis` | Interactive enable/disable (anytime) |
-| `homeswitch attach` | Supervisor in **this** tty; spawns the home CLI |
-| `homeswitch sidecar` | Picker UI that sends `set_model` |
-| `homeswitch model <id>` | Switch the attached pane |
-| `homeswitch model gpt --range 5-` | Hop with a txcript message range |
-| `homeswitch status` | Attached panes |
-| `homeswitch sessions` | Native sessions on disk for this directory |
-| `homeswitch doctor` | CLIs, txcript, directories |
-| `homeswitch detach` | Stop the supervisor |
-| `homeswitch models` | Catalog |
+| `baton init` | Write config and register detected CLIs |
+| `baton clis` | Interactive enable/disable (anytime) |
+| `baton attach` | Supervisor in **this** tty; spawns the home CLI |
+| `baton sidecar` | Picker UI that sends `set_model` |
+| `baton model <id>` | Switch the attached pane |
+| `baton model gpt --range 5-` | Hop with a txcript message range |
+| `baton status` | Attached panes |
+| `baton sessions` | Native sessions on disk for this directory |
+| `baton doctor` | CLIs, txcript, directories |
+| `baton detach` | Stop the supervisor |
+| `baton models` | Catalog |
 
---json works on `homeswitch models --json`, `status`, `sessions`, `doctor`, and `clis list`.
+--json works on `baton models --json`, `status`, `sessions`, `doctor`, and `clis list`.
 
 ## How a switch works
 
-1. Sidecar sends `{ "op": "set_model", "model": "gpt" }` on a Unix socket under `~/.homeswitch/sockets/`.
+1. Sidecar sends `{ "op": "set_model", "model": "gpt" }` on a Unix socket under `~/.baton/sockets/`.
 2. Supervisor stops the current CLI (SIGTERM).
 3. If the home harness changed: `txcript continue <id> --from <src> --with <dst> --no-resume`.
 4. Supervisor respawns the **registered** binary with `--model` / `resume` flags documented for that CLI.
@@ -141,7 +144,7 @@ Attach is POSIX-only (Unix sockets). Use macOS, Linux, or WSL.
 ```sh
 python3 -m pip install -e ".[dev]"
 python3 -m pytest -q
-node bin/homeswitch.js --version
+node bin/baton.js --version
 ```
 
 ## License

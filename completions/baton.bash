@@ -1,4 +1,4 @@
-_complete()
+_baton()
 {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   local cmds="init clis models status model attach sidecar doctor sessions detach"
@@ -12,4 +12,4 @@ _complete()
     COMPREPLY=( $(compgen -W "opus sonnet haiku gpt codex composer" -- "${cur}") )
   fi
 }
-complete -F _complete homeswitch
+complete -F _baton baton

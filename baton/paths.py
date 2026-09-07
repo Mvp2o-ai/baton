@@ -5,10 +5,10 @@ from pathlib import Path
 
 
 def home_dir() -> Path:
-    override = os.environ.get("HOMESWITCH_HOME")
+    override = os.environ.get("BATON_HOME")
     if override:
         return Path(override).expanduser()
-    return Path.home() / ".homeswitch"
+    return Path.home() / ".baton"
 
 
 def config_path() -> Path:

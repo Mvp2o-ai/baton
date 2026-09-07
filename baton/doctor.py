@@ -5,10 +5,10 @@ import shutil
 import sys
 from pathlib import Path
 
-from homeswitch.clis import discover
-from homeswitch.config import load_config
-from homeswitch.dirs import describe_all
-from homeswitch.txcript_hop import find_txcript
+from baton.clis import discover
+from baton.config import load_config
+from baton.dirs import describe_all
+from baton.txcript_hop import find_txcript
 
 
 def collect_doctor(*, cwd: Path | None = None) -> dict:
@@ -46,7 +46,7 @@ def collect_doctor(*, cwd: Path | None = None) -> dict:
         problems.append("txcript not on PATH (required for cross-harness hops)")
     enabled = [row for row in clis if row["enabled"]]
     if not enabled:
-        problems.append("no CLI homes enabled — run `homeswitch clis`")
+        problems.append("no CLI homes enabled — run `baton clis`")
     if sys.platform == "win32":
         problems.append("attach uses Unix sockets; Windows is unsupported (use WSL or macOS/Linux)")
     return {

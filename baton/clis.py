@@ -5,7 +5,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-from homeswitch.catalog import HARNESS_CLAUDE, HARNESS_CODEX, HARNESS_CURSOR, SUPPORTED_HARNESSES
+from baton.catalog import HARNESS_CLAUDE, HARNESS_CODEX, HARNESS_CURSOR, SUPPORTED_HARNESSES
 
 
 # Official CLI binaries. Extra names are aliases we accept on PATH.
@@ -94,13 +94,13 @@ def require_enabled(records: dict[str, CliRecord], harness: str) -> CliRecord:
         raise KeyError(f"unknown harness {harness!r}")
     if not rec.enabled:
         raise RuntimeError(
-            f"{harness} is not enabled. Run `homeswitch clis` and enable it."
+            f"{harness} is not enabled. Run `baton clis` and enable it."
         )
     if not rec.found:
         names = " / ".join(rec.names)
         raise RuntimeError(
             f"{harness} is enabled but {names} was not found on PATH. "
-            f"Install it, or `homeswitch clis set {harness} --bin /path/to/binary`."
+            f"Install it, or `baton clis set {harness} --bin /path/to/binary`."
         )
     return rec
 

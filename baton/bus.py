@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from homeswitch.paths import sockets_dir
+from baton.paths import sockets_dir
 
 
 def socket_path(pane_id: str) -> Path:

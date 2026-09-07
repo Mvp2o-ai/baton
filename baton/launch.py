@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from homeswitch.catalog import HARNESS_CLAUDE, HARNESS_CODEX, HARNESS_CURSOR, Model
-from homeswitch.clis import CliRecord
+from baton.catalog import HARNESS_CLAUDE, HARNESS_CODEX, HARNESS_CURSOR, Model
+from baton.clis import CliRecord
 
 
 def launch_argv(record: CliRecord, model: Model, session_id: str | None) -> list[str]:

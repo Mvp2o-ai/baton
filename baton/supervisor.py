@@ -10,14 +10,14 @@ import time
 import uuid
 from pathlib import Path
 
-from homeswitch.bus import PaneState, socket_path
-from homeswitch.catalog import get_model
-from homeswitch.clis import require_enabled
-from homeswitch.config import Config, load_config
-from homeswitch.launch import launch_argv
-from homeswitch.panes import remove_pane, write_pane
-from homeswitch.discover import latest_session
-from homeswitch.txcript_hop import TxcriptError, continue_session
+from baton.bus import PaneState, socket_path
+from baton.catalog import get_model
+from baton.clis import require_enabled
+from baton.config import Config, load_config
+from baton.launch import launch_argv
+from baton.panes import remove_pane, write_pane
+from baton.discover import latest_session
+from baton.txcript_hop import TxcriptError, continue_session
 
 
 class Supervisor:
@@ -157,16 +157,16 @@ class Supervisor:
         model = self.model
         rec = require_enabled(self.cfg.clis, model.harness)
         argv = launch_argv(rec, model, self.session_id)
-        print(f"homeswitch: launching {' '.join(argv)}", file=sys.stderr)
+        print(f"baton: launching {' '.join(argv)}", file=sys.stderr)
         return subprocess.Popen(argv, cwd=str(self.cwd))
 
     def run(self) -> int:
-        thread = threading.Thread(target=self._serve, name="homeswitch-bus", daemon=True)
+        thread = threading.Thread(target=self._serve, name="baton-bus", daemon=True)
         thread.start()
         self.persist(idle=True)
         print(
-            f"homeswitch: pane {self.pane_id}  thread {self.thread_id}  "
-            f"sidecar: homeswitch model <id> --pane {self.pane_id}",
+            f"baton: pane {self.pane_id}  thread {self.thread_id}  "
+            f"sidecar: baton model <id> --pane {self.pane_id}",
             file=sys.stderr,
         )
         try:
@@ -180,15 +180,15 @@ class Supervisor:
                     try:
                         msg = self.apply_model(pending, span)
                     except (TxcriptError, RuntimeError, KeyError) as exc:
-                        print(f"homeswitch: switch failed: {exc}", file=sys.stderr)
+                        print(f"baton: switch failed: {exc}", file=sys.stderr)
                         self.persist(idle=True)
                         time.sleep(0.2)
                         continue
-                    print(f"homeswitch: {msg}", file=sys.stderr)
+                    print(f"baton: {msg}", file=sys.stderr)
                 try:
                     self.child = self._spawn()
                 except RuntimeError as exc:
-                    print(f"homeswitch: {exc}", file=sys.stderr)
+                    print(f"baton: {exc}", file=sys.stderr)
                     return 1
                 self.persist(idle=False)
                 self.child.wait()
@@ -203,7 +203,7 @@ class Supervisor:
                 if has_pending:
                     continue
                 print(
-                    "homeswitch: operator exited. waiting for sidecar model switch, "
+                    "baton: operator exited. waiting for sidecar model switch, "
                     "or Ctrl-C to detach.",
                     file=sys.stderr,
                 )
@@ -221,7 +221,7 @@ class Supervisor:
                 except subprocess.TimeoutExpired:
                     self.child.kill()
             self._restore_tty()
-            print("homeswitch: detached", file=sys.stderr)
+            print("baton: detached", file=sys.stderr)
             return 130
         finally:
             self.stop.set()

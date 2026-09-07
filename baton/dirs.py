@@ -1,7 +1,7 @@
 """Canonical on-disk roots for Claude Code, Codex, and Cursor CLI.
 
 Paths follow vendor docs and txcript store defaults (checked 2026-09).
-Homeswitch never writes into these trees itself — txcript and the home CLIs do.
+Baton never writes into these trees itself — txcript and the home CLIs do.
 """
 
 from __future__ import annotations

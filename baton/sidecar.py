@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import sys
 
-from homeswitch.bus import send_request
-from homeswitch.catalog import get_model
-from homeswitch.config import load_config
-from homeswitch.panes import list_panes
+from baton.bus import send_request
+from baton.catalog import get_model
+from baton.config import load_config
+from baton.panes import list_panes
 
 
 def default_pane_id() -> str:
@@ -13,7 +13,7 @@ def default_pane_id() -> str:
     if len(panes) == 1:
         return panes[0].pane_id
     if not panes:
-        raise RuntimeError("no attached panes. run `homeswitch attach` in the project terminal.")
+        raise RuntimeError("no attached panes. run `baton attach` in the project terminal.")
     ids = ", ".join(p.pane_id for p in panes)
     raise RuntimeError(f"multiple panes attached ({ids}). pass --pane <id>.")
 
@@ -37,7 +37,7 @@ def set_model(
 
 def sidecar_loop() -> int:
     cfg = load_config()
-    print("homeswitch sidecar — type a model id, ls, status, or q")
+    print("baton sidecar — type a model id, ls, status, or q")
     print("models: " + ", ".join(f"{m.id} ({m.harness})" for m in cfg.models))
     while True:
         panes = list_panes()

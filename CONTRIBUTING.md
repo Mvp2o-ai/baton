@@ -1,6 +1,6 @@
 # Contributing
 
-Homeswitch is Apache-2.0. Issues and pull requests are welcome.
+Baton is Apache-2.0. Issues and pull requests are welcome.
 
 ## Setup
 
@@ -11,7 +11,7 @@ python -m pip install -e ".[dev]"
 python -m pytest -q
 ```
 
-Do not execute vendor CLIs (`claude`, `codex`, `agent`) just to read `--help`. Path detection uses `PATH` lookup only. Session directories are documented in `homeswitch/dirs.py` with links to the vendor/txcript sources.
+Do not execute vendor CLIs (`claude`, `codex`, `agent`) just to read `--help`. Path detection uses `PATH` lookup only. Session directories are documented in `baton/dirs.py` with links to the vendor/txcript sources.
 
 ## Scope
 
