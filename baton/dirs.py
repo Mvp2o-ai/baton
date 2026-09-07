@@ -170,7 +170,7 @@ def describe_all(cwd: str | Path | None = None) -> list[HarnessDirs]:
             harness="codex",
             config_or_home=codex_home(),
             sessions=codex_sessions_dir(),
-            notes="date-sharded rollouts; CODEX_HOME relocates ~/.codex",
+            notes="date-sharded rollouts filtered by session_meta.payload.cwd; CODEX_HOME relocates ~/.codex",
         ),
         HarnessDirs(
             harness="cursor",

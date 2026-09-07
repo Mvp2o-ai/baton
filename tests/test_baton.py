@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -118,6 +119,38 @@ def test_list_claude_and_cursor_sessions(tmp_path, monkeypatch):
     assert cursor[0].session_id == "sess-1"
 
 
+def test_codex_sessions_filter_by_cwd(tmp_path, monkeypatch):
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
+    sessions = tmp_path / "codex" / "sessions" / "2026" / "09" / "07"
+    sessions.mkdir(parents=True)
+    mine = tmp_path / "proj"
+    other = tmp_path / "other"
+    mine.mkdir()
+    other.mkdir()
+    mine_id = "019aaaaa-bbbb-7ccc-dddd-eeeeeeeeeeee"
+    other_id = "019bbbbb-cccc-7ddd-eeee-ffffffffffff"
+    (sessions / f"rollout-2026-09-07T10-00-00-{mine_id}.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "session_meta",
+                "payload": {"cwd": str(mine.resolve()), "id": mine_id},
+            }
+        )
+        + "\n"
+    )
+    (sessions / f"rollout-2026-09-07T11-00-00-{other_id}.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "session_meta",
+                "payload": {"cwd": str(other.resolve()), "id": other_id},
+            }
+        )
+        + "\n"
+    )
+    found = list_sessions("codex", mine)
+    assert [item.session_id for item in found] == [mine_id]
+
+
 def test_which_first_uses_path(tmp_path, monkeypatch):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -138,6 +171,36 @@ def test_discover_finds_fake_claude(tmp_path, monkeypatch):
     recs = discover()
     assert recs["claude_code"].found
     assert recs["claude_code"].enabled
+
+
+def test_empty_config_enables_found_clis(tmp_path, monkeypatch):
+    from baton.clis import records_from_config
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake = bin_dir / "codex"
+    fake.write_text("#!/bin/sh\n")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bin_dir))
+    recs = records_from_config({})
+    assert recs["codex"].found
+    assert recs["codex"].enabled
+
+
+def test_saved_disabled_flag_is_preserved(tmp_path, monkeypatch):
+    from baton.clis import records_from_config
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake = bin_dir / "codex"
+    fake.write_text("#!/bin/sh\n")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bin_dir))
+    recs = records_from_config(
+        {"clis": {"codex": {"enabled": False, "bin": str(fake)}}}
+    )
+    assert recs["codex"].found
+    assert recs["codex"].enabled is False
 
 
 def test_launch_argv(tmp_path):

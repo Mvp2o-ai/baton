@@ -23,9 +23,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/baton-cli/baton"
-Issues = "https://github.com/baton-cli/baton/issues"
-Source = "https://github.com/baton-cli/baton"
+Homepage = "https://github.com/Mvp2o-ai/baton"
+Issues = "https://github.com/Mvp2o-ai/baton/issues"
+Source = "https://github.com/Mvp2o-ai/baton"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]

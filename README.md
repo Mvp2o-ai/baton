@@ -28,7 +28,7 @@ python3 -m pip install --user .
 # or, once published: python3 -m pip install --user tty-baton
 
 # curl installer (uses npm if present, else pipx/pip)
-curl -fsSL https://raw.githubusercontent.com/baton-cli/baton/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Mvp2o-ai/baton/main/install.sh | bash
 ```
 
 [`@batonai/cli`](https://github.com/niketkal/baton) also installs a `baton` binary. If both are on PATH, whichever comes first wins. Their `.baton/` directory is project-local; this product's config is `~/.baton`.
@@ -83,7 +83,7 @@ Baton **reads** these trees to list sessions and to recover an id after a CLI ex
 | Harness | Root | Session files | Relocate with |
 |---|---|---|---|
 | Claude Code | `~/.claude/projects/<encoded-cwd>/` | `<session-id>.jsonl` (sometimes under `sessions/`) | `CLAUDE_CONFIG_DIR` |
-| Codex | `$CODEX_HOME/sessions/YYYY/MM/DD/` | `rollout-<timestamp>-<uuid>.jsonl` | `CODEX_HOME` (default `~/.codex`) |
+| Codex | `$CODEX_HOME/sessions/YYYY/MM/DD/` | `rollout-<timestamp>-<uuid>.jsonl` (listed only when `session_meta.payload.cwd` matches this directory) | `CODEX_HOME` (default `~/.codex`) |
 | Cursor CLI | `<cursor-store>/chats/<md5(abs-cwd)>/<uuid>/` | `store.db` + `meta.json` | `CURSOR_STORE_ROOT`, else `CURSOR_DATA_PATH`, else `$XDG_CONFIG_HOME/cursor` if that tree exists, else `~/.cursor` |
 
 Claude project folder encoding (official): the absolute cwd with every non-alphanumeric character replaced by `-`.

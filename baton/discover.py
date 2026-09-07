@@ -32,7 +32,7 @@ def list_sessions(harness: str, cwd: str | Path) -> list[NativeSession]:
     if harness == HARNESS_CLAUDE:
         found = _claude_sessions(work)
     elif harness == HARNESS_CODEX:
-        found = _codex_sessions()
+        found = _codex_sessions(work)
     elif harness == HARNESS_CURSOR:
         found = _cursor_sessions(work)
     else:
@@ -66,12 +66,15 @@ def _claude_sessions(cwd: Path) -> list[NativeSession]:
     return out
 
 
-def _codex_sessions() -> list[NativeSession]:
+def _codex_sessions(cwd: Path) -> list[NativeSession]:
     out: list[NativeSession] = []
+    want = cwd.resolve()
     for root in (codex_sessions_dir(), codex_archived_sessions_dir()):
         if not root.is_dir():
             continue
         for path in root.rglob("rollout-*.jsonl"):
+            if not _codex_rollout_matches_cwd(path, want):
+                continue
             session_id = _codex_id_from_name(path.name)
             if not session_id:
                 continue
@@ -84,6 +87,38 @@ def _codex_sessions() -> list[NativeSession]:
                 )
             )
     return out
+
+
+def _codex_rollout_matches_cwd(path: Path, cwd: Path) -> bool:
+    recorded = _codex_cwd_from_rollout(path)
+    if not recorded:
+        return False
+    try:
+        return Path(recorded).expanduser().resolve() == cwd.resolve()
+    except OSError:
+        return False
+
+
+def _codex_cwd_from_rollout(path: Path) -> str | None:
+    """Read ``session_meta.payload.cwd`` from the first JSONL line only."""
+    try:
+        with path.open(encoding="utf-8") as handle:
+            line = handle.readline()
+    except OSError:
+        return None
+    if not line:
+        return None
+    try:
+        obj = json.loads(line)
+    except json.JSONDecodeError:
+        return None
+    if obj.get("type") != "session_meta":
+        return None
+    payload = obj.get("payload")
+    if not isinstance(payload, dict):
+        return None
+    cwd = payload.get("cwd")
+    return cwd if isinstance(cwd, str) and cwd else None
 
 
 def _codex_id_from_name(name: str) -> str | None:

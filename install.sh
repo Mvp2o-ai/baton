@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install baton via npm (preferred) or pip.
-#   curl -fsSL https://raw.githubusercontent.com/baton-cli/baton/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Mvp2o-ai/baton/main/install.sh | bash
 set -euo pipefail
 
 need_python() {

@@ -15,6 +15,7 @@ Sources: Claude Code sessions docs, OpenAI Codex `CODEX_HOME`, txcript 0.13 stor
 - Rollouts: `<home>/sessions/YYYY/MM/DD/rollout-<ts>-<uuid>.jsonl`
 - Archive: `<home>/archived_sessions/`
 - SQLite index: `$CODEX_SQLITE_HOME` or `<home>/state_*.sqlite`
+- Baton keeps only rollouts whose first line is `session_meta` with `payload.cwd` equal to the current directory. Codex pools all projects in one date-sharded tree.
 
 ## Cursor CLI (not desktop)
 

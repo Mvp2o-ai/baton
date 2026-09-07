@@ -8,7 +8,7 @@ from pathlib import Path
 from baton import __version__
 from baton.bus import send_request
 from baton.catalog import SUPPORTED_HARNESSES, get_model
-from baton.clis import discover, set_bin, set_enabled
+from baton.clis import discover, enable_found, set_bin, set_enabled
 from baton.config import load_config, save_config
 from baton.discover import list_sessions, session_to_dict
 from baton.doctor import collect_doctor, dumps_report, format_doctor
@@ -234,7 +234,7 @@ def cmd_detach(args: argparse.Namespace) -> int:
 
 def cmd_init(args: argparse.Namespace) -> int:
     cfg = load_config()
-    cfg.clis = discover(cfg.clis)
+    cfg.clis = enable_found(cfg.clis)
     save_config(cfg)
     from baton.paths import config_path
 

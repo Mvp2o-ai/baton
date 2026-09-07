@@ -25,12 +25,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/baton-cli/baton.git"
+    "url": "git+https://github.com/Mvp2o-ai/baton.git"
   },
   "bugs": {
-    "url": "https://github.com/baton-cli/baton/issues"
+    "url": "https://github.com/Mvp2o-ai/baton/issues"
   },
-  "homepage": "https://github.com/baton-cli/baton#readme",
+  "homepage": "https://github.com/Mvp2o-ai/baton#readme",
   "keywords": [
     "claude-code",
     "codex",

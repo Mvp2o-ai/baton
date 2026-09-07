@@ -66,19 +66,33 @@ def discover(records: dict[str, CliRecord] | None = None) -> dict[str, CliRecord
 
 
 def records_from_config(raw: dict) -> dict[str, CliRecord]:
+    """Load saved CLI rows. Harnesses absent from config are undiscovered.
+
+    Do not seed missing harnesses as ``enabled=False`` — that made first-run
+    ``init`` look like the user had already turned every CLI off.
+    """
     clis = raw.get("clis") or {}
-    base = {
-        harness: CliRecord(harness=harness, names=CLI_SPECS[harness])
-        for harness in SUPPORTED_HARNESSES
-    }
+    previous: dict[str, CliRecord] = {}
     for harness, row in clis.items():
-        if harness not in base:
+        if harness not in CLI_SPECS:
             continue
-        rec = base[harness]
-        rec.enabled = bool(row.get("enabled"))
         bin_path = row.get("bin")
-        rec.bin = str(bin_path) if bin_path else None
-    return discover(base)
+        previous[harness] = CliRecord(
+            harness=harness,
+            names=CLI_SPECS[harness],
+            enabled=bool(row.get("enabled")),
+            bin=str(bin_path) if bin_path else None,
+        )
+    return discover(previous)
+
+
+def enable_found(records: dict[str, CliRecord] | None = None) -> dict[str, CliRecord]:
+    """Discover binaries and enable every harness that is present on disk."""
+    out = discover(records)
+    for rec in out.values():
+        if rec.found:
+            rec.enabled = True
+    return out
 
 
 def records_to_config(records: dict[str, CliRecord]) -> dict:
