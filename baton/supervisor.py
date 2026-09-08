@@ -12,9 +12,10 @@ import uuid
 from pathlib import Path
 
 from baton.bus import PaneState, socket_path
-from baton.catalog import Model, make_model, resolve
+from baton.catalog import HARNESS_CURSOR, Model, make_model, resolve
 from baton.clis import require_enabled
 from baton.config import Config, load_config
+from baton.cursor_resume import seal_imported_cursor_session
 from baton.launch import launch_argv
 from baton.panes import remove_pane, write_pane
 from baton.discover import latest_session
@@ -95,6 +96,8 @@ class Supervisor:
                 txcript_bin=self.cfg.txcript_bin,
             )
             self.session_id = result.session_id
+            if nxt.harness == HARNESS_CURSOR:
+                seal_imported_cursor_session(result.session_id, self.cwd)
         self._model = nxt
         return (
             f"now {nxt.display_label()} @ {nxt.harness}"

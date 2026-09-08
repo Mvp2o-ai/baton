@@ -528,3 +528,111 @@ def test_format_catalog_plain_without_tty(monkeypatch):
     assert "opus" in text
     assert "\x1b" not in text
 
+
+def _proto_varint(value: int) -> bytes:
+    out = bytearray()
+    while value >= 0x80:
+        out.append((value & 0x7F) | 0x80)
+        value >>= 7
+    out.append(value)
+    return bytes(out)
+
+
+def _cursor_root_without_tz(started_ms: int = 1_788_873_499_237) -> bytes:
+    # field 8 (turns) + field 10 (mode) + field 26 (started ms) — txcript shape
+    turn = b"\x00" * 32
+    body = bytearray()
+    body.extend(_proto_varint((8 << 3) | 2))
+    body.extend(_proto_varint(len(turn)))
+    body.extend(turn)
+    body.extend(_proto_varint((10 << 3) | 0))
+    body.extend(_proto_varint(1))
+    body.extend(_proto_varint((26 << 3) | 0))
+    body.extend(_proto_varint(started_ms))
+    return bytes(body)
+
+
+def test_iana_timezone_prefers_tz_env(monkeypatch):
+    monkeypatch.setenv("TZ", "America/Chicago")
+    from baton.cursor_resume import iana_timezone
+
+    assert iana_timezone() == "America/Chicago"
+
+
+def test_seal_imported_cursor_session_appends_timezone(monkeypatch, tmp_path):
+    import hashlib
+    import json
+    import sqlite3
+
+    from baton.cursor_resume import _top_level_fields, seal_imported_cursor_session
+    from baton.dirs import cursor_workspace_hash
+
+    cwd = tmp_path / "proj"
+    cwd.mkdir()
+    monkeypatch.setenv("CURSOR_STORE_ROOT", str(tmp_path / "cursor"))
+    monkeypatch.setenv("TZ", "America/New_York")
+    sid = "3ae1c3d5-25e6-41a4-ae27-bcf41d9a61f3"
+    session_dir = tmp_path / "cursor" / "chats" / cursor_workspace_hash(cwd) / sid
+    session_dir.mkdir(parents=True)
+    root = _cursor_root_without_tz()
+    root_id = hashlib.sha256(root).hexdigest()
+    meta = {
+        "agentId": sid,
+        "latestRootBlobId": root_id,
+        "name": "Imported Session",
+        "createdAt": 1788873499237,
+    }
+    db = session_dir / "store.db"
+    conn = sqlite3.connect(str(db))
+    conn.execute("CREATE TABLE blobs (id TEXT PRIMARY KEY, data BLOB)")
+    conn.execute("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)")
+    conn.execute("INSERT INTO blobs (id, data) VALUES (?, ?)", (root_id, root))
+    conn.execute(
+        "INSERT INTO meta (key, value) VALUES ('0', ?)",
+        (json.dumps(meta, separators=(",", ":")).encode().hex(),),
+    )
+    conn.commit()
+    conn.close()
+
+    assert seal_imported_cursor_session(sid, cwd) is True
+    conn = sqlite3.connect(str(db))
+    value = conn.execute("SELECT value FROM meta WHERE key = '0'").fetchone()[0]
+    updated = json.loads(bytes.fromhex(value).decode())
+    new_id = updated["latestRootBlobId"]
+    assert new_id != root_id
+    patched = conn.execute("SELECT data FROM blobs WHERE id = ?", (new_id,)).fetchone()[0]
+    conn.close()
+    fields = _top_level_fields(patched)
+    assert 26 in fields and 27 in fields
+    assert patched.endswith(b"America/New_York")
+
+
+def test_seal_imported_cursor_session_skips_when_timezone_present(monkeypatch, tmp_path):
+    import hashlib
+    import json
+    import sqlite3
+
+    from baton.cursor_resume import _len_field, seal_imported_cursor_session
+    from baton.dirs import cursor_workspace_hash
+
+    cwd = tmp_path / "proj"
+    cwd.mkdir()
+    monkeypatch.setenv("CURSOR_STORE_ROOT", str(tmp_path / "cursor"))
+    sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    session_dir = tmp_path / "cursor" / "chats" / cursor_workspace_hash(cwd) / sid
+    session_dir.mkdir(parents=True)
+    root = _cursor_root_without_tz() + _len_field(27, b"America/New_York")
+    root_id = hashlib.sha256(root).hexdigest()
+    db = session_dir / "store.db"
+    conn = sqlite3.connect(str(db))
+    conn.execute("CREATE TABLE blobs (id TEXT PRIMARY KEY, data BLOB)")
+    conn.execute("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)")
+    conn.execute("INSERT INTO blobs (id, data) VALUES (?, ?)", (root_id, root))
+    conn.execute(
+        "INSERT INTO meta (key, value) VALUES ('0', ?)",
+        (json.dumps({"latestRootBlobId": root_id}).encode().hex(),),
+    )
+    conn.commit()
+    conn.close()
+    assert seal_imported_cursor_session(sid, cwd) is False
+
