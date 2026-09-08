@@ -1,0 +1,14 @@
+---
+description: Baton hops must pin a public txcript rev; no half-broke releases
+alwaysApply: true
+---
+
+# Complete releases
+
+I always want the solution that allows those that fork to work. I never want a half broke release that requires a manual pull from another repo.
+
+Baton does not convert transcripts. Hop writer bugs go in txcript, then this repo's documented pin bumps in the **same** product change.
+
+- Pin remote is `https://github.com/wiltshirek/txcript` (`--rev` in README, CI, `baton/txcript_pin.py`).
+- Do not ask whether to ship txcript or Baton. Land the converter SHA on that remote, then bump every pin here.
+- A clone plus the README install command must hop. No sibling-checkout instructions.

@@ -30,16 +30,16 @@ def iana_timezone() -> str:
         target = str(localtime.resolve())
     except OSError:
         return "UTC"
-    markers = (
-        "/var/db/timezone/zoneinfo/",
-        "/usr/share/zoneinfo/",
-        "/usr/share/zoneinfo/posix/",
-    )
-    for prefix in markers:
-        if target.startswith(prefix):
-            zone = target[len(prefix) :]
-            if zone:
-                return zone
+    return iana_timezone_from_path(target)
+
+
+def iana_timezone_from_path(target: str) -> str:
+    """Parse an IANA name out of a zoneinfo symlink target."""
+    marker = "/zoneinfo/"
+    if marker in target:
+        zone = target.rsplit(marker, 1)[-1]
+        if zone:
+            return zone
     return "UTC"
 
 

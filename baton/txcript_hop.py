@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from baton.txcript_parse import parse_continue_output
+from baton.txcript_pin import install_cmd
 
 
 class TxcriptError(RuntimeError):
@@ -38,8 +39,7 @@ def continue_session(
     binary = find_txcript(txcript_bin)
     if not binary:
         raise TxcriptError(
-            "txcript is not on PATH. Install with: "
-            "cargo install --git https://github.com/skillsynchq/txcript txcript-cli"
+            "txcript is not on PATH. Install with: " + install_cmd()
         )
     if source_harness == target_harness:
         raise TxcriptError("same-harness model changes must not call txcript continue")

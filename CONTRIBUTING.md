@@ -22,4 +22,4 @@ Do not execute vendor CLIs (`claude`, `codex`, `agent`) just to read `--help`. P
 - Composer / Cursor models always home to Cursor CLI (`cursor` / `agent`).
 - No Cursor desktop (`state.vscdb`) and no Claude Desktop.
 
-The converter is [txcript](https://github.com/skillsynchq/txcript). Do not vendor a fork unless a store-writer bug cannot be upstreamed.
+The converter is [txcript](https://github.com/skillsynchq/txcript). Hop-blocking writer fixes land on the documented pin remote first (`wiltshirek/txcript`), then this repo’s pin (README, CI, `baton/txcript_pin.py`) bumps in the same product change. A clone plus the README `cargo install --git … --rev` must hop. Do not vendor a fork unless a store-writer bug cannot be upstreamed.
