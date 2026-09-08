@@ -7,4 +7,6 @@ build/
 *.egg-info/
 .DS_Store
 node_modules/
+LOCAL.md
+*.local.md
 
