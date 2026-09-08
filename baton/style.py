@@ -134,3 +134,19 @@ def print_logo(*, file: TextIO | None = None, tagline: str | None = None) -> Non
     print(logo(stream=file), file=file)
     if tagline:
         print(dim(tagline, stream=file), file=file)
+
+
+def print_interstitial(target_label: str, *, file: TextIO | None = None) -> None:
+    """Full-screen hop screen shown while a switch is in flight.
+
+    The txcript session hop plus the next CLI's own startup can take a
+    couple of seconds with nothing on screen otherwise — this covers that
+    gap instead of leaving the outgoing CLI's stale frame up. The next
+    child's own output (or our `log()` lines) naturally overwrites it.
+    """
+    file = file or sys.stdout
+    if color_enabled(file):
+        file.write("\x1b[H\x1b[2J")
+    print(logo(stream=file), file=file)
+    print(dim(f"hopping to {target_label}…", stream=file), file=file)
+    file.flush()

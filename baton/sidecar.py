@@ -1,22 +1,43 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from baton.bus import send_request
 from baton.catalog import Model, resolve
 from baton.config import load_config
-from baton.panes import list_panes
+from baton.panes import list_panes, panes_for_cwd
 from baton.picker import pick
 from baton.provider_models import collect_catalog
 from baton.style import err, ok
 
+_ATTACH_HOWTO = (
+    "In a project terminal run `baton claude`, `baton codex`, or `baton agent`, "
+    "then type /baton in that same terminal. An IDE chat tab is not an attach pane."
+)
 
-def default_pane_id() -> str:
+
+def default_pane_id(cwd: Path | None = None) -> str:
     panes = list_panes()
+    if not panes:
+        raise RuntimeError(f"Nothing is attached.\n{_ATTACH_HOWTO}")
+    here = (cwd or Path.cwd()).resolve()
+    local = panes_for_cwd(here, panes)
+    if len(local) == 1:
+        return local[0].pane_id
+    if len(local) > 1:
+        ids = ", ".join(p.pane_id for p in local)
+        raise RuntimeError(
+            f"This directory has more than one attach ({ids}).\n"
+            f"From another terminal: baton detach --pane <id>"
+        )
     if len(panes) == 1:
         return panes[0].pane_id
-    if not panes:
-        raise RuntimeError("no attached panes. run `baton attach` in the project terminal.")
-    ids = ", ".join(p.pane_id for p in panes)
-    raise RuntimeError(f"multiple panes attached ({ids}). pass --pane <id>.")
+    live = "\n".join(f"  {p.pane_id}  {p.thread_id}  {p.cwd}" for p in panes)
+    raise RuntimeError(
+        f"This directory is not attached ({here}).\n"
+        f"{_ATTACH_HOWTO}\n"
+        f"Live panes in other projects:\n{live}"
+    )
 
 
 def request_pick(pane_id: str | None = None) -> dict:
