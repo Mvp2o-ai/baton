@@ -19,6 +19,18 @@ from baton.dirs import (
 from baton.discover import _codex_id_from_name, list_sessions
 from baton.launch import launch_argv
 from baton.txcript_parse import parse_continue_output, strip_ansi
+from baton.txcript_pin import TXCRIPT_GIT, TXCRIPT_REV, install_cmd
+
+
+def test_txcript_pin_matches_readme_and_ci():
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    ci = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert TXCRIPT_REV in readme
+    assert TXCRIPT_REV in ci
+    assert TXCRIPT_GIT in readme
+    assert TXCRIPT_GIT in ci
+    assert TXCRIPT_REV in install_cmd()
 
 
 def test_encode_claude_project_replaces_non_alnum():
@@ -557,6 +569,19 @@ def test_iana_timezone_prefers_tz_env(monkeypatch):
     from baton.cursor_resume import iana_timezone
 
     assert iana_timezone() == "America/Chicago"
+
+
+def test_iana_timezone_from_macos_tzdata_path():
+    from baton.cursor_resume import iana_timezone_from_path
+
+    assert (
+        iana_timezone_from_path(
+            "/private/var/db/timezone/tz/2026c.1.0/zoneinfo/America/New_York"
+        )
+        == "America/New_York"
+    )
+    assert iana_timezone_from_path("/usr/share/zoneinfo/Europe/Paris") == "Europe/Paris"
+    assert iana_timezone_from_path("/etc/localtime") == "UTC"
 
 
 def test_seal_imported_cursor_session_appends_timezone(monkeypatch, tmp_path):
