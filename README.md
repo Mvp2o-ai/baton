@@ -4,7 +4,9 @@ Sidecar model switcher for **Claude Code**, **Codex**, and **Cursor CLI**.
 
 One shared model catalog. Each model has a **home CLI**. The switcher is a separate process (adjacent pane or another window). The coding terminal stays the same window; the operator binary is replaced.
 
-**Built on [txcript](https://github.com/skillsynchq/txcript)** (Apache-2.0, [Skillsync](https://github.com/skillsynchq)). Txcript converts a session into another harness’s native format and writes it where that CLI can `--resume`. Baton does not convert transcripts. It is the control plane: catalog, CLI registration, pane supervisor, and `txcript continue --no-resume` on a harness hop. Not a fork.
+**The hop keeps your personal skills.** Claude, Cursor, and Codex each store user skills in a different home. A model switch used to leave those folders behind. After txcript continues the session, Baton inventories user-global skills and asks to directory-symlink anything the destination cannot already see. The real folder stays where you created it. No copies. No third tree. See [Skills come with you](#skills-come-with-you).
+
+**Built on [txcript](https://github.com/skillsynchq/txcript)** (Apache-2.0, [Skillsync](https://github.com/skillsynchq)). Txcript converts a session into another harness’s native format and writes it where that CLI can `--resume`. Baton does not convert transcripts. It is the control plane: catalog, CLI registration, pane supervisor, skill bridging, and `txcript continue --no-resume` on a harness hop. Not a fork.
 
 Apache-2.0.
 
@@ -62,6 +64,43 @@ Each enabled CLI contributes **its home models only**. Claude Code: documented `
 
 No desktop apps. Cursor IDE `state.vscdb` is out of scope.
 
+## Skills come with you
+
+This is the hop advantage the other CLIs do not give you.
+
+Personal skills live in **one** provider home. Cursor already scans Claude and `~/.agents` / `~/.codex`. Claude and Codex do **not** scan `~/.cursor/skills`. Without a bridge, Cursor → Claude (and Cursor → Codex) drops the skills you actually use.
+
+On a harness hop, Baton inventories **user-global** skill folders and asks only for names the destination cannot already see:
+
+```text
+3 user skills not visible to Claude Code:
+  complete-releases  →  ~/.cursor/skills/complete-releases
+  …
+Link them into ~/.claude/skills? [Y/n]
+```
+
+Enter links them. `n` skips. The hop still proceeds. No tty means it logs and does not `ln`.
+
+The real directory stays where it was created. Links are the **whole skill folder**, not `SKILL.md` alone (Codex ignores a file symlink). Cursor and Codex sharing `~/.agents/skills` is the intended layout.
+
+| Created in | Hop to Cursor | Hop to Claude | Hop to Codex |
+|---|---|---|---|
+| `~/.cursor/skills` | already there | link | link into `~/.agents/skills` |
+| `~/.claude/skills` | already visible | already there | link into `~/.agents/skills` |
+| `~/.agents/skills` | already visible (shared) | link | already there |
+
+Out of scope: project `.claude/skills` / `.cursor/skills` / `.agents/skills`, Cursor `skills-cursor`, Claude `synced`, Baton's own `/baton` stub, two different real folders with the same name.
+
+| Provider | User-global skills | Relocate with |
+|---|---|---|
+| Claude Code | `$CLAUDE_CONFIG_DIR/skills` or `~/.claude/skills` | `CLAUDE_CONFIG_DIR` |
+| Cursor CLI | `~/.cursor/skills` | — |
+| Codex | `~/.agents/skills` (official USER root; shared with Cursor) | — |
+
+Codex still scans `$CODEX_HOME/skills` as a deprecated user root. A skill created there stays there; Baton will not move it. New links go to `~/.agents/skills`.
+
+`baton doctor` prints the resolved skill roots. Path details: [docs/directories.md](docs/directories.md).
+
 ## Session directories
 
 Baton **reads** these trees to list sessions and to recover an id after a CLI exits. Writes on a harness hop are done by **txcript**.
@@ -78,21 +117,7 @@ Codex also keeps a SQLite thread index under `CODEX_SQLITE_HOME` or `$CODEX_HOME
 
 Cursor **CLI** chats are not Cursor **desktop**. Desktop Composer lives in `state.vscdb` under Application Support / `%APPDATA%`. Baton does not touch that.
 
-`baton doctor` prints the resolved paths for the current cwd.
-
-## User skills
-
-On a harness hop, Baton looks at **user-global** skill folders only (not project `.claude/skills`, not Cursor `skills-cursor`, not Claude `synced`, not Baton's own `/baton` stub).
-
-| Provider | User-global skills | Relocate with |
-|---|---|---|
-| Claude Code | `$CLAUDE_CONFIG_DIR/skills` or `~/.claude/skills` | `CLAUDE_CONFIG_DIR` |
-| Cursor CLI | `~/.cursor/skills` | — |
-| Codex | `~/.agents/skills` (official USER root; shared with Cursor) | — |
-
-Codex still scans `$CODEX_HOME/skills` as a deprecated user root. A skill created there stays there; Baton will not move it.
-
-The real directory stays with the provider that created it. Missing destinations get a **directory symlink** (the whole skill folder, not `SKILL.md` alone) after you confirm. Cursor already loads Claude and `~/.agents` / `~/.codex` skill trees, so hops *to* Cursor usually need no extra link.
+`baton doctor` prints the resolved session and skill-root paths for the current cwd.
 
 ## Config
 
@@ -122,7 +147,7 @@ Cursor’s documented install drops `agent` in `~/.local/bin`. That directory is
 | `baton models` | Print the live catalog (non-interactive) |
 | `baton status` | Attached panes |
 | `baton sessions` | Native sessions on disk for this directory |
-| `baton doctor` | CLIs, txcript, directories |
+| `baton doctor` | CLIs, txcript, session directories, user skill roots |
 | `baton detach` | Stop the supervisor |
 
 `--json` works on `baton models --json`, `status`, `sessions`, `doctor`, and `clis list`.
@@ -132,7 +157,7 @@ Cursor’s documented install drops `agent` in `~/.local/bin`. That directory is
 1. `/baton list` in the home CLI (or `baton set` from another tty) sends `{ "op": "pick" }` or `{ "op": "set_model", ... }` on a Unix socket under `~/.baton/sockets/`.
 2. Supervisor stops the current CLI (SIGTERM).
 3. If the home harness changed: `txcript continue <id> --from <src> --with <dst> --no-resume`.
-4. If the destination cannot already see a **user-global** skill (Cursor already scans Claude / Codex / `~/.agents`), Baton asks to directory-symlink it into that provider's user skills root. The real folder stays where it was created. Enter accepts; `n` skips. The hop is not blocked.
+4. **Skills come with you:** if the destination cannot already see a **user-global** skill, Baton asks to directory-symlink it into that provider's user skills root. See [Skills come with you](#skills-come-with-you). Enter accepts; `n` skips. The hop is not blocked.
 5. Supervisor respawns the **registered** binary with `--model` / `resume` flags documented for that CLI.
 6. Same tty. New operator.
 

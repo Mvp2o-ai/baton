@@ -1,6 +1,8 @@
-# Session directories (verified 2026-09)
+# Session directories and skill roots (verified 2026-09)
 
 Sources: Claude Code sessions docs, OpenAI Codex `CODEX_HOME`, txcript 0.13 store defaults, Cursor CLI / store-stack writeups.
+
+Baton hops keep more than the transcript. After txcript writes the destination store, Baton bridges **user-global skills** so the next CLI can see the personal folders you already have. Session paths are below; skill bridging is in [User-global skills](#user-global-skills).
 
 ## Claude Code
 
@@ -30,6 +32,25 @@ Cursor desktop Composer (`state.vscdb` under Application Support / `%APPDATA%`) 
 
 Sources: Claude Code skills docs, OpenAI Codex skills docs, Cursor skills docs / CLI 2.5+ symlink fix.
 
+**Why this is the hop advantage.** Each CLI invented its own user-global skills home. Cursor already scans Claude and the shared `~/.agents` / `~/.codex` trees. Claude and Codex do not scan `~/.cursor/skills`. A Cursor → Claude hop used to keep the thread and drop the skills. Baton inventories those roots on switch and asks to directory-symlink anything the destination cannot already see. The real folder stays where it was created. No copies. No third Baton tree.
+
+On a tty:
+
+```text
+3 user skills not visible to Claude Code:
+  complete-releases  →  ~/.cursor/skills/complete-releases
+  …
+Link them into ~/.claude/skills? [Y/n]
+```
+
+Enter links them. `n` skips. The hop is not blocked. No tty: log and skip `ln`. `baton doctor` lists the resolved roots.
+
+| Created in | Hop to Cursor | Hop to Claude | Hop to Codex |
+|---|---|---|---|
+| `~/.cursor/skills` | already there | link | link into `~/.agents/skills` |
+| `~/.claude/skills` | already visible | already there | link into `~/.agents/skills` |
+| `~/.agents/skills` | already visible (shared) | link | already there |
+
 Baton only bridges **user-global** skills on a hop. Project trees (`.claude/skills`, `.cursor/skills`, `.agents/skills`) stay out of this.
 
 | Provider | User-global skills | Relocate with |
@@ -38,7 +59,7 @@ Baton only bridges **user-global** skills on a hop. Project trees (`.claude/skil
 | Cursor CLI | `~/.cursor/skills` | — |
 | Codex | `~/.agents/skills` | — |
 
-Codex also still reads `$CODEX_HOME/skills` (deprecated USER root). New links are written to `~/.agents/skills`.
+Codex also still reads `$CODEX_HOME/skills` (deprecated USER root). New links are written to `~/.agents/skills`. A skill created under the deprecated root stays there; Baton will not move it.
 
 Do not touch:
 
@@ -46,7 +67,8 @@ Do not touch:
 - Claude reserved name `synced`
 - Baton's managed `/baton` stub
 - Codex SYSTEM / ADMIN / `$CODEX_HOME/skills/.system`
+- Two different real folders that already share a name (left unlinked)
 
 A personal skill folder may be a directory symlink. Codex skips a symlinked `SKILL.md` file; link the folder. Cursor CLI follows per-skill folder symlinks (fixed around `2026.02.27`). Claude follows directory symlinks and dedupes the same target.
 
-Cursor already scans `~/.claude/skills`, `~/.codex/skills`, and `~/.agents/skills`. Claude and Codex do not scan `~/.cursor/skills`.
+Cursor already scans `~/.claude/skills`, `~/.codex/skills`, and `~/.agents/skills`. Claude and Codex do not scan `~/.cursor/skills`. That is why hops *to* Cursor usually need no extra link, and hops *from* Cursor usually do.
