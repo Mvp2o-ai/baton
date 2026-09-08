@@ -26,11 +26,17 @@ jobs:
       - name: CLI via npm launcher
         run: node bin/baton.js --version
 
+  converter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install --git https://github.com/wiltshirek/txcript --rev f7b6a9777aac3c882059a0f5a61984a2b842ad9c txcript-cli
+
   # Single required check for branch protection (matrix jobs become test (3.11), …).
   CI:
-    needs: test
+    needs: [test, converter]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: All test jobs passed
-        run: test "${{ needs.test.result }}" = "success"
+        run: test "${{ needs.test.result }}" = "success" && test "${{ needs.converter.result }}" = "success"

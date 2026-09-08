@@ -40,7 +40,7 @@ curl -fsSL https://raw.githubusercontent.com/Mvp2o-ai/baton/main/install.sh | ba
 Cross-harness hops need the [txcript CLI](https://github.com/skillsynchq/txcript):
 
 ```sh
-cargo install --git https://github.com/skillsynchq/txcript txcript-cli
+cargo install --git https://github.com/wiltshirek/txcript --rev f7b6a9777aac3c882059a0f5a61984a2b842ad9c txcript-cli
 ```
 
 ## Quick start
