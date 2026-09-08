@@ -3,6 +3,10 @@
 Session trees are owned by the home CLIs and txcript. Baton also writes
 managed `/baton` slash stubs and prompt hooks into each CLI's config
 directory (`<!-- baton-managed -->`); it skips files you already own.
+
+User-global skill folders live next to those homes. Baton never treats
+``~/.cursor/skills-cursor`` or Claude's reserved ``synced`` name as user
+skills.
 """
 
 from __future__ import annotations
@@ -148,6 +152,37 @@ def cursor_workspace_hash(cwd: str | Path) -> str:
 
 def cursor_workspace_chats_dir(cwd: str | Path) -> Path:
     return cursor_chats_dir() / cursor_workspace_hash(cwd)
+
+
+def cursor_user_home() -> Path:
+    """Cursor CLI user config (skills, commands, hooks). Always ``~/.cursor``.
+
+    Distinct from :func:`cursor_store_root`, which may follow
+    ``CURSOR_STORE_ROOT`` / XDG for the chat store.
+    """
+    return _home() / ".cursor"
+
+
+def agents_home() -> Path:
+    """Shared Cursor + Codex agents tree. Official Codex USER skills root."""
+    return _home() / ".agents"
+
+
+def claude_user_skills_dir() -> Path:
+    return claude_config_dir() / "skills"
+
+
+def cursor_user_skills_dir() -> Path:
+    return cursor_user_home() / "skills"
+
+
+def agents_user_skills_dir() -> Path:
+    return agents_home() / "skills"
+
+
+def codex_deprecated_user_skills_dir() -> Path:
+    """Codex still scans ``$CODEX_HOME/skills``; new links go to :func:`agents_user_skills_dir`."""
+    return codex_home() / "skills"
 
 
 @dataclass(frozen=True)

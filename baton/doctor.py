@@ -8,6 +8,7 @@ from pathlib import Path
 from baton.clis import discover
 from baton.config import load_config
 from baton.dirs import describe_all
+from baton.skill_bridge import describe_skill_roots
 from baton.style import brass, cyan, dim, err, heading, ok
 from baton.txcript_hop import find_txcript
 
@@ -40,6 +41,15 @@ def collect_doctor(*, cwd: Path | None = None) -> dict:
                 "notes": item.notes,
             }
         )
+    skills = []
+    for item in describe_skill_roots():
+        path = Path(item["path"])
+        skills.append(
+            {
+                **item,
+                "exists": path.is_dir(),
+            }
+        )
     problems: list[str] = []
     if sys.version_info < (3, 11):
         problems.append(f"Python {sys.version.split()[0]} is older than 3.11")
@@ -59,6 +69,7 @@ def collect_doctor(*, cwd: Path | None = None) -> dict:
         "which_python": shutil.which("python3") or shutil.which("python"),
         "clis": clis,
         "directories": dirs,
+        "skill_roots": skills,
         "problems": problems,
     }
 
@@ -86,6 +97,13 @@ def format_doctor(report: dict) -> str:
         flag = "yes" if row["sessions_exist"] else "no"
         harness = cyan(f"{row['harness']:<14}", stream=stream)
         lines.append(f"  {harness} exists={flag:<3} {row['sessions']}")
+        lines.append(dim(f"                 {row['notes']}", stream=stream))
+    lines.append("")
+    lines.append(heading("User skill roots", stream=stream))
+    for row in report.get("skill_roots") or []:
+        flag = "yes" if row.get("exists") else "no"
+        harness = cyan(f"{row['harness']:<14}", stream=stream)
+        lines.append(f"  {harness} exists={flag:<3} {row['path']}")
         lines.append(dim(f"                 {row['notes']}", stream=stream))
     if report["problems"]:
         lines.append("")

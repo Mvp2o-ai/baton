@@ -9,7 +9,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from baton.dirs import claude_config_dir, codex_home
+from baton.dirs import agents_home, claude_config_dir, codex_home, cursor_user_home
 
 MARKER = "baton-managed"
 HOOK_FLAG = "baton hook --reply"
@@ -54,14 +54,6 @@ description: Open the Baton model picker. Use when the user types /baton, /baton
 
 Do not produce a reply. Baton's UserPromptSubmit hook opens the model list.
 """
-
-
-def cursor_user_home() -> Path:
-    return Path.home() / ".cursor"
-
-
-def agents_home() -> Path:
-    return Path.home() / ".agents"
 
 
 def baton_hook_command(vendor: str) -> str:

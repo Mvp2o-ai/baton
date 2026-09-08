@@ -20,6 +20,7 @@ from baton.launch import launch_argv
 from baton.panes import remove_pane, write_pane
 from baton.discover import latest_session
 from baton.provider_models import collect_catalog
+from baton.skill_bridge import offer_user_skill_links
 from baton.style import log, print_interstitial, print_logo
 from baton.txcript_hop import TxcriptError, continue_session
 
@@ -98,6 +99,11 @@ class Supervisor:
             self.session_id = result.session_id
             if nxt.harness == HARNESS_CURSOR:
                 seal_imported_cursor_session(result.session_id, self.cwd)
+            self._restore_tty()
+            try:
+                offer_user_skill_links(nxt.harness)
+            except OSError as exc:
+                log(f"skill links: {exc}", kind="error")
         self._model = nxt
         return (
             f"now {nxt.display_label()} @ {nxt.harness}"

@@ -409,7 +409,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = sub.add_parser(
         "doctor",
         parents=[json_parent],
-        help="Check CLIs, txcript, and session directories",
+        help="Check CLIs, txcript, session directories, and user skill roots",
     )
     doctor.add_argument("--cwd")
     doctor.set_defaults(func=cmd_doctor)
