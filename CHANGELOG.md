@@ -3,6 +3,7 @@
 ## Unreleased
 
 - On a harness hop, request directory symlinks so the destination CLI can see user-global skills created in another provider. The real folder stays where it was created. Cursor already sharing `~/.agents` with Codex is expected; hops to Cursor skip links those trees already expose.
+- README and `docs/directories.md` lead with that hop: skills come with you (prompt, hop matrix, what is out of scope).
 
 ## 0.1.0
 

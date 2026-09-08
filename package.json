@@ -1,7 +1,7 @@
 {
   "name": "@batoncli/cli",
   "version": "0.1.0",
-  "description": "Sidecar model switcher for Claude Code, Codex, and Cursor CLI. Same terminal pane, new home harness.",
+  "description": "Sidecar model switcher for Claude Code, Codex, and Cursor CLI. Same pane, new harness — personal skills hop with you.",
   "license": "Apache-2.0",
   "bin": {
     "baton": "bin/baton.js"
@@ -40,6 +40,7 @@
     "cursor",
     "txcript",
     "cli",
-    "sidecar"
+    "sidecar",
+    "skills"
   ]
 }
