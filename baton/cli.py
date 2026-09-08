@@ -12,7 +12,7 @@ from baton.clis import discover, enable_found, set_bin, set_enabled
 from baton.config import load_config, save_config
 from baton.discover import list_sessions, session_to_dict
 from baton.doctor import collect_doctor, dumps_report, format_doctor
-from baton.panes import list_panes
+from baton.panes import list_panes, panes_for_cwd
 from baton.picker import format_catalog
 from baton.provider_models import collect_catalog
 from baton.sidecar import default_pane_id, set_loop, set_model
@@ -199,8 +199,7 @@ def _ensure_ready(*, verbose: bool = False) -> tuple:
 
 
 def _already_attached(workdir: Path):
-    here = workdir.resolve()
-    return [p for p in list_panes() if Path(p.cwd).resolve() == here]
+    return panes_for_cwd(workdir)
 
 
 def cmd_set(_args: argparse.Namespace) -> int:

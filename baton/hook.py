@@ -49,7 +49,8 @@ def poke_pick() -> str | None:
         request_pick()
         return None
     except Exception as exc:  # noqa: BLE001
-        return str(exc)
+        detail = str(exc).strip() or exc.__class__.__name__
+        return f"/baton could not open the model picker.\n{detail}"
 
 
 def reply_json(vendor: str, *, blocked: bool, reason: str) -> dict:
@@ -69,11 +70,7 @@ def handle_payload(payload: dict, *, vendor: str) -> dict:
         return reply_json(vendor, blocked=False, reason="")
     err = poke_pick()
     if err:
-        return reply_json(
-            vendor,
-            blocked=True,
-            reason=f"baton: {err}",
-        )
+        return reply_json(vendor, blocked=True, reason=err)
     return reply_json(
         vendor,
         blocked=True,

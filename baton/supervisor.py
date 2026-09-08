@@ -20,7 +20,7 @@ from baton.launch import launch_argv
 from baton.panes import remove_pane, write_pane
 from baton.discover import latest_session
 from baton.provider_models import collect_catalog
-from baton.style import log, print_logo
+from baton.style import log, print_interstitial, print_logo
 from baton.txcript_hop import TxcriptError, continue_session
 
 
@@ -230,6 +230,7 @@ class Supervisor:
                     self.pending_range = None
                     self.pending_pick = False
                 if pending:
+                    print_interstitial(pending.display_label())
                     try:
                         msg = self.apply_model(pending, span)
                     except (TxcriptError, RuntimeError, KeyError) as exc:
@@ -248,6 +249,7 @@ class Supervisor:
                         ]
                     )
                     if chosen is not None:
+                        print_interstitial(chosen.display_label())
                         try:
                             msg = self.apply_model(chosen)
                             log(msg, kind="ok")

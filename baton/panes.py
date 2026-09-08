@@ -43,3 +43,13 @@ def list_panes() -> list[PaneState]:
         if live:
             out.append(state)
     return out
+
+
+def panes_for_cwd(
+    cwd: Path | None = None,
+    panes: list[PaneState] | None = None,
+) -> list[PaneState]:
+    here = (cwd or Path.cwd()).resolve()
+    if panes is None:
+        panes = list_panes()
+    return [p for p in panes if Path(p.cwd).resolve() == here]
