@@ -661,3 +661,152 @@ def test_seal_imported_cursor_session_skips_when_timezone_present(monkeypatch, t
     conn.close()
     assert seal_imported_cursor_session(sid, cwd) is False
 
+
+def _skill_homes(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(home / ".claude"))
+    monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
+    return home
+
+
+def _write_skill(root, name, body="# skill\n"):
+    folder = root / name
+    folder.mkdir(parents=True)
+    (folder / "SKILL.md").write_text(body, encoding="utf-8")
+    return folder
+
+
+def test_cursor_skill_needs_claude_and_codex_links(monkeypatch, tmp_path):
+    from baton.dirs import agents_user_skills_dir, claude_user_skills_dir, cursor_user_skills_dir
+    from baton.skill_bridge import missing_links
+
+    _skill_homes(monkeypatch, tmp_path)
+    source = _write_skill(cursor_user_skills_dir(), "complete-releases")
+    claude = missing_links("claude_code")
+    assert [(x.name, x.source, x.dest) for x in claude] == [
+        ("complete-releases", source.resolve(), claude_user_skills_dir() / "complete-releases")
+    ]
+    codex = missing_links("codex")
+    assert [(x.name, x.source, x.dest) for x in codex] == [
+        ("complete-releases", source.resolve(), agents_user_skills_dir() / "complete-releases")
+    ]
+    assert missing_links("cursor") == []
+
+
+def test_claude_and_agents_skills_already_visible_to_cursor(monkeypatch, tmp_path):
+    from baton.dirs import agents_user_skills_dir, claude_user_skills_dir
+    from baton.skill_bridge import missing_links
+
+    _skill_homes(monkeypatch, tmp_path)
+    _write_skill(claude_user_skills_dir(), "catch-up-on-previous-thread")
+    _write_skill(agents_user_skills_dir(), "agent-messages")
+    assert missing_links("cursor") == []
+    claude = missing_links("claude_code")
+    assert [x.name for x in claude] == ["agent-messages"]
+    assert claude[0].source == (agents_user_skills_dir() / "agent-messages").resolve()
+    assert missing_links("codex")[0].name == "catch-up-on-previous-thread"
+
+
+def test_deprecated_codex_skill_is_visible_to_cursor_not_claude(monkeypatch, tmp_path):
+    from baton.dirs import claude_user_skills_dir, codex_deprecated_user_skills_dir
+    from baton.skill_bridge import missing_links
+
+    _skill_homes(monkeypatch, tmp_path)
+    source = _write_skill(codex_deprecated_user_skills_dir(), "from-codex-home")
+    assert missing_links("cursor") == []
+    assert missing_links("codex") == []
+    claude = missing_links("claude_code")
+    assert len(claude) == 1
+    assert claude[0].source == source.resolve()
+    assert claude[0].dest == claude_user_skills_dir() / "from-codex-home"
+
+
+def test_reserved_and_owned_names_are_not_proposed(monkeypatch, tmp_path):
+    from baton.dirs import claude_user_skills_dir, cursor_user_skills_dir
+    from baton.skill_bridge import missing_links
+
+    _skill_homes(monkeypatch, tmp_path)
+    _write_skill(cursor_user_skills_dir(), "baton")
+    _write_skill(cursor_user_skills_dir(), "synced")
+    _write_skill(cursor_user_skills_dir(), "mine")
+    owned = claude_user_skills_dir() / "mine"
+    owned.mkdir(parents=True)
+    (owned / "notes.txt").write_text("not a skill\n", encoding="utf-8")
+    assert missing_links("claude_code") == []
+
+
+def test_existing_symlink_to_same_target_is_not_proposed(monkeypatch, tmp_path):
+    from baton.dirs import cursor_user_skills_dir
+    from baton.skill_bridge import apply_links, missing_links
+
+    _skill_homes(monkeypatch, tmp_path)
+    source = _write_skill(cursor_user_skills_dir(), "complete-releases")
+    proposed = missing_links("claude_code")
+    created = apply_links(proposed)
+    assert created[0].dest.is_symlink()
+    assert created[0].dest.resolve() == source.resolve()
+    assert missing_links("claude_code") == []
+
+
+def test_name_collision_is_not_bridged(monkeypatch, tmp_path):
+    from baton.dirs import claude_user_skills_dir, cursor_user_skills_dir
+    from baton.skill_bridge import collect_user_skills, missing_links
+
+    _skill_homes(monkeypatch, tmp_path)
+    _write_skill(cursor_user_skills_dir(), "dup")
+    _write_skill(claude_user_skills_dir(), "dup")
+    assert "dup" not in collect_user_skills()
+    assert missing_links("codex") == []
+
+
+def test_cursor_symlink_codex_link_points_at_canonical(monkeypatch, tmp_path):
+    from baton.dirs import agents_user_skills_dir, claude_user_skills_dir, cursor_user_skills_dir
+    from baton.skill_bridge import apply_links, missing_links
+
+    _skill_homes(monkeypatch, tmp_path)
+    canonical = _write_skill(claude_user_skills_dir(), "complete-releases")
+    cursor_dir = cursor_user_skills_dir()
+    cursor_dir.mkdir(parents=True)
+    (cursor_dir / "complete-releases").symlink_to(canonical)
+    proposed = missing_links("codex")
+    assert len(proposed) == 1
+    assert proposed[0].source == canonical.resolve()
+    assert proposed[0].dest == agents_user_skills_dir() / "complete-releases"
+    apply_links(proposed)
+    assert (agents_user_skills_dir() / "complete-releases").resolve() == canonical.resolve()
+
+
+def test_offer_skips_without_tty_and_links_on_yes(monkeypatch, tmp_path):
+    from baton.dirs import claude_user_skills_dir, cursor_user_skills_dir
+    from baton.skill_bridge import offer_user_skill_links
+
+    _skill_homes(monkeypatch, tmp_path)
+    _write_skill(cursor_user_skills_dir(), "complete-releases")
+    dest = claude_user_skills_dir() / "complete-releases"
+    assert offer_user_skill_links("claude_code", interactive=False) == []
+    assert not dest.exists()
+    monkeypatch.setattr("builtins.input", lambda: "")
+    created = offer_user_skill_links("claude_code", interactive=True)
+    assert len(created) == 1
+    assert dest.is_symlink()
+    monkeypatch.setattr("builtins.input", lambda: "n")
+    _write_skill(cursor_user_skills_dir(), "another")
+    assert offer_user_skill_links("claude_code", interactive=True) == []
+    assert not (claude_user_skills_dir() / "another").exists()
+
+
+def test_doctor_lists_skill_roots(monkeypatch, tmp_path):
+    from baton.doctor import collect_doctor
+
+    _skill_homes(monkeypatch, tmp_path)
+    monkeypatch.setenv("BATON_HOME", str(tmp_path / "baton-home"))
+    report = collect_doctor(cwd=tmp_path)
+    paths = {row["path"] for row in report["skill_roots"]}
+    home = tmp_path / "home"
+    assert str(home / ".claude" / "skills") in paths
+    assert str(home / ".cursor" / "skills") in paths
+    assert str(home / ".agents" / "skills") in paths
+    assert str(home / ".codex" / "skills") in paths
+

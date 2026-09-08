@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- On a harness hop, request directory symlinks so the destination CLI can see user-global skills created in another provider. The real folder stays where it was created. Cursor already sharing `~/.agents` with Codex is expected; hops to Cursor skip links those trees already expose.
+
 ## 0.1.0
 
 - First public release: sidecar model switcher, CLI registration, txcript hops. Txcript is credited as the converter (README + NOTICE); this repo does not vendor it.

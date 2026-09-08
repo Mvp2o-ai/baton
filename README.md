@@ -80,6 +80,20 @@ Cursor **CLI** chats are not Cursor **desktop**. Desktop Composer lives in `stat
 
 `baton doctor` prints the resolved paths for the current cwd.
 
+## User skills
+
+On a harness hop, Baton looks at **user-global** skill folders only (not project `.claude/skills`, not Cursor `skills-cursor`, not Claude `synced`, not Baton's own `/baton` stub).
+
+| Provider | User-global skills | Relocate with |
+|---|---|---|
+| Claude Code | `$CLAUDE_CONFIG_DIR/skills` or `~/.claude/skills` | `CLAUDE_CONFIG_DIR` |
+| Cursor CLI | `~/.cursor/skills` | — |
+| Codex | `~/.agents/skills` (official USER root; shared with Cursor) | — |
+
+Codex still scans `$CODEX_HOME/skills` as a deprecated user root. A skill created there stays there; Baton will not move it.
+
+The real directory stays with the provider that created it. Missing destinations get a **directory symlink** (the whole skill folder, not `SKILL.md` alone) after you confirm. Cursor already loads Claude and `~/.agents` / `~/.codex` skill trees, so hops *to* Cursor usually need no extra link.
+
 ## Config
 
 `~/.baton/config.json` (or `$BATON_HOME`).
@@ -118,8 +132,9 @@ Cursor’s documented install drops `agent` in `~/.local/bin`. That directory is
 1. `/baton list` in the home CLI (or `baton set` from another tty) sends `{ "op": "pick" }` or `{ "op": "set_model", ... }` on a Unix socket under `~/.baton/sockets/`.
 2. Supervisor stops the current CLI (SIGTERM).
 3. If the home harness changed: `txcript continue <id> --from <src> --with <dst> --no-resume`.
-4. Supervisor respawns the **registered** binary with `--model` / `resume` flags documented for that CLI.
-5. Same tty. New operator.
+4. If the destination cannot already see a **user-global** skill (Cursor already scans Claude / Codex / `~/.agents`), Baton asks to directory-symlink it into that provider's user skills root. The real folder stays where it was created. Enter accepts; `n` skips. The hop is not blocked.
+5. Supervisor respawns the **registered** binary with `--model` / `resume` flags documented for that CLI.
+6. Same tty. New operator.
 
 Same-harness model changes skip txcript and only change the launch flag.
 
