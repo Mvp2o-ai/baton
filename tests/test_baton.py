@@ -369,6 +369,20 @@ def test_claude_allowlist(monkeypatch, tmp_path):
     assert "opus" not in ids
 
 
+def test_hook_pick_failure_is_instructional(monkeypatch):
+    from baton.hook import handle_payload
+
+    def boom():
+        raise RuntimeError("Nothing is attached.\nrun baton attach")
+
+    monkeypatch.setattr("baton.hook.request_pick", boom)
+    out = handle_payload({"prompt": "/baton"}, vendor="cursor")
+    assert out["continue"] is False
+    assert "/baton could not open the model picker." in out["user_message"]
+    assert "Nothing is attached." in out["user_message"]
+    assert "run baton attach" in out["user_message"]
+
+
 def test_baton_slash_prompt_match():
     from baton.hook import is_baton_invocation, prompt_is_baton, reply_json
 
@@ -462,6 +476,46 @@ def test_style_force_color(monkeypatch):
     assert magenta("baton").startswith("\x1b")
     assert "BATON" in wordmark()
     assert "\x1b" in wordmark()
+
+
+def _pane(pane_id: str, cwd: Path):
+    from baton.bus import PaneState
+
+    return PaneState(
+        pane_id=pane_id,
+        thread_id=f"thread-{pane_id}",
+        cwd=str(cwd),
+        model_id="codex:gpt-5",
+        harness="codex",
+        session_id=None,
+        idle=False,
+        pid=1,
+    )
+
+
+def test_default_pane_id_prefers_cwd_when_several_are_live(monkeypatch, tmp_path):
+    here = tmp_path / "here"
+    other = tmp_path / "other"
+    here.mkdir()
+    other.mkdir()
+    panes = [_pane("aaaa1111", other), _pane("bbbb2222", here)]
+    monkeypatch.setattr("baton.sidecar.list_panes", lambda: panes)
+    from baton.sidecar import default_pane_id
+
+    assert default_pane_id(here) == "bbbb2222"
+
+
+def test_default_pane_id_errors_when_cwd_is_not_attached(monkeypatch, tmp_path):
+    live = tmp_path / "live"
+    other = tmp_path / "other"
+    live.mkdir()
+    other.mkdir()
+    panes = [_pane("aaaa1111", live), _pane("cccc3333", other)]
+    monkeypatch.setattr("baton.sidecar.list_panes", lambda: panes)
+    from baton.sidecar import default_pane_id
+
+    with pytest.raises(RuntimeError, match="This directory is not attached"):
+        default_pane_id(tmp_path)
 
 
 def test_format_catalog_plain_without_tty(monkeypatch):
