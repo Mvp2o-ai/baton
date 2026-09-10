@@ -1,9 +1,9 @@
 # Baton
 
 <p align="center">
-  <video src="https://github.com/Mvp2o-ai/baton/raw/main/docs/hero.mp4" autoplay loop muted playsinline controls width="720">
-    <a href="docs/hero.mp4">The hop. Same tab, same thread.</a>
-  </video>
+
+![The hop. Same tab, same thread.](docs/hero.mp4)
+
 </p>
 
 Sidecar model switcher for **Claude Code**, **Codex**, and **Cursor CLI**.
