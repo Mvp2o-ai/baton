@@ -1,9 +1,7 @@
 # Baton
 
 <p align="center">
-
-https://github.com/Mvp2o-ai/baton/releases/download/readme-hero/hero.mp4
-
+  <img src="docs/hero.gif" alt="The hop. Same tab, same thread." width="720" />
 </p>
 
 Sidecar model switcher for **Claude Code**, **Codex**, and **Cursor CLI**.
