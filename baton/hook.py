@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 
 from baton.sidecar import request_pick
 
@@ -43,10 +44,54 @@ def prompt_is_baton(prompt: str) -> bool:
     return bool(_PROMPT_RE.match(text))
 
 
-def poke_pick() -> str | None:
+def payload_directories(payload: dict) -> list[Path]:
+    """Project dirs from Claude/Codex ``cwd`` and Cursor ``workspace_roots``.
+
+    Hook *process* cwd is not used here. Cursor IDE runs beforeSubmitPrompt
+    with cwd ``~/.cursor``; Claude and Codex JSON include the session cwd.
+    """
+    found: list[Path] = []
+    seen: set[Path] = set()
+
+    def add(value: object) -> None:
+        if not isinstance(value, str):
+            return
+        text = value.strip()
+        if not text:
+            return
+        path = Path(text).expanduser()
+        try:
+            path = path.resolve()
+        except OSError:
+            return
+        if path in seen:
+            return
+        seen.add(path)
+        found.append(path)
+
+    add(payload.get("cwd"))
+    roots = payload.get("workspace_roots")
+    if isinstance(roots, list):
+        for item in roots:
+            add(item)
+    return found
+
+
+def payload_transcript(payload: dict) -> str | None:
+    raw = payload.get("transcript_path")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return None
+
+
+def poke_pick(payload: dict | None = None) -> str | None:
     """Ask the attached supervisor to open the picker. None on success."""
+    payload = payload or {}
     try:
-        request_pick()
+        request_pick(
+            cwd=payload_directories(payload) or None,
+            transcript_path=payload_transcript(payload),
+        )
         return None
     except Exception as exc:  # noqa: BLE001
         detail = str(exc).strip() or exc.__class__.__name__
@@ -68,7 +113,7 @@ def reply_json(vendor: str, *, blocked: bool, reason: str) -> dict:
 def handle_payload(payload: dict, *, vendor: str) -> dict:
     if not is_baton_invocation(payload):
         return reply_json(vendor, blocked=False, reason="")
-    err = poke_pick()
+    err = poke_pick(payload)
     if err:
         return reply_json(vendor, blocked=True, reason=err)
     return reply_json(

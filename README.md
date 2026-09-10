@@ -54,7 +54,7 @@ baton claude     # or: baton codex   baton agent
 
 First run writes `~/.baton` and installs `/baton` slash hooks, then this terminal becomes that CLI. Same for `baton`, `baton attach`, and `baton init` (init prints the CLI table, then attaches).
 
-Inside Claude, Codex, or Cursor, type **`/baton`** (or `/baton list`). The model picker opens in this same terminal. Enter hops; `q` keeps the current CLI.
+Inside Claude, Codex, or Cursor, type **`/baton`** (or `/baton list`). The picker opens in the attach terminal. An IDE chat for that same project uses the hook payload’s workspace (`cwd` / `workspace_roots`), not the hook process directory. Enter hops; `q` keeps the current CLI.
 
 `baton set` in another terminal is a backup. `baton clis` toggles homes if you need to.
 

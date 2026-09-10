@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 from baton.bus import PaneState
+from baton.dirs import encode_claude_project
 from baton.paths import panes_dir, sockets_dir, ensure_dirs
 
 
@@ -53,3 +55,58 @@ def panes_for_cwd(
     if panes is None:
         panes = list_panes()
     return [p for p in panes if Path(p.cwd).resolve() == here]
+
+
+def panes_for_cwds(
+    cwds: Sequence[Path | str],
+    panes: list[PaneState] | None = None,
+) -> list[PaneState]:
+    if panes is None:
+        panes = list_panes()
+    seen: set[str] = set()
+    out: list[PaneState] = []
+    for raw in cwds:
+        for pane in panes_for_cwd(Path(raw), panes):
+            if pane.pane_id in seen:
+                continue
+            seen.add(pane.pane_id)
+            out.append(pane)
+    return out
+
+
+def panes_for_transcript(
+    transcript_path: str,
+    panes: list[PaneState] | None = None,
+) -> list[PaneState]:
+    """Match a pane whose project encoding appears in a vendor transcript path.
+
+    Cursor IDE: ``~/.cursor/projects/<abs-cwd-with-slashes-as-dashes>/…``
+    Claude Code: ``~/.claude/projects/<encode_claude_project(cwd)>/…``
+    """
+    if panes is None:
+        panes = list_panes()
+    text = transcript_path.replace("\\", "/")
+    if not text:
+        return []
+    out: list[PaneState] = []
+    seen: set[str] = set()
+    for pane in panes:
+        resolved = Path(pane.cwd).resolve()
+        slugs = (
+            str(resolved).lstrip("/").replace("/", "-"),
+            encode_claude_project(resolved),
+        )
+        if not any(_project_slug_in_transcript(text, slug) for slug in slugs):
+            continue
+        if pane.pane_id in seen:
+            continue
+        seen.add(pane.pane_id)
+        out.append(pane)
+    return out
+
+
+def _project_slug_in_transcript(text: str, slug: str) -> bool:
+    if not slug:
+        return False
+    needle = f"/projects/{slug}"
+    return needle + "/" in text or text.endswith(needle)
