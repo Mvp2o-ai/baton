@@ -1,5 +1,11 @@
 # Baton
 
+<p align="center">
+  <video src="https://github.com/Mvp2o-ai/baton/raw/main/docs/hero.mp4" autoplay loop muted playsinline controls width="720">
+    <a href="docs/hero.mp4">The hop. Same tab, same thread.</a>
+  </video>
+</p>
+
 Sidecar model switcher for **Claude Code**, **Codex**, and **Cursor CLI**.
 
 One shared model catalog. Each model has a **home CLI**. The switcher is a separate process (adjacent pane or another window). The coding terminal stays the same window; the operator binary is replaced.
