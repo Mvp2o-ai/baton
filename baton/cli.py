@@ -319,7 +319,12 @@ def _add_attach_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--cwd")
     parser.add_argument("--thread")
     parser.add_argument("--model", help="starting --model id; omit to use the home default")
-    parser.add_argument("--session", help="existing native session id to resume")
+    parser.add_argument(
+        "--session",
+        "--resume",
+        dest="session",
+        help="native session id to resume (same as the home CLI --resume)",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:

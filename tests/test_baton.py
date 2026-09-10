@@ -284,6 +284,14 @@ def test_set_aliases_parse():
         args = parser.parse_args([name])
         assert args.func is cmd_attach
         assert args.harness == harness
+    sid = "5e3f8600-faab-4e48-abc9-13c8b3aa0599"
+    resumed = parser.parse_args(["agent", f"--resume={sid}"])
+    assert resumed.func is cmd_attach
+    assert resumed.harness == HARNESS_CURSOR
+    assert resumed.session == sid
+    spaced = parser.parse_args(["claude", "--resume", sid])
+    assert spaced.session == sid
+    assert parser.parse_args(["codex", "--session", sid]).session == sid
 
 
 def test_cli_models_json(monkeypatch, tmp_path):
