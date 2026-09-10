@@ -52,6 +52,7 @@ class Supervisor:
         self.stop = threading.Event()
         self._server: socket.socket | None = None
         self._pty_master: int | None = None
+        self._abandoned = False
 
     @property
     def model(self) -> Model:
@@ -182,6 +183,21 @@ class Supervisor:
         server.close()
         path.unlink(missing_ok=True)
 
+    def abandon(self) -> None:
+        """Drop child and pane files. Safe from signals; must not wait for finally."""
+        if self._abandoned:
+            return
+        self._abandoned = True
+        self.stop.set()
+        self._terminate_child()
+        if self._server is not None:
+            try:
+                self._server.close()
+            except OSError:
+                pass
+            self._server = None
+        remove_pane(self.pane_id)
+
     def _terminate_child(self) -> None:
         child = self.child
         if child is not None and child.poll() is None:
@@ -290,6 +306,9 @@ class Supervisor:
                 self.persist(idle=True)
                 if self.stop.is_set():
                     break
+                if not sys.stdin.isatty():
+                    log("tty closed, detaching")
+                    break
                 with self.lock:
                     has_pending = self.pending_model is not None or self.pending_pick
                 if has_pending:
@@ -312,13 +331,7 @@ class Supervisor:
             log("detached")
             return 130
         finally:
-            self.stop.set()
-            if self._server is not None:
-                try:
-                    self._server.close()
-                except OSError:
-                    pass
-            remove_pane(self.pane_id)
+            self.abandon()
         return 0
 
 
@@ -372,10 +385,31 @@ def attach(
         extra_args=extra_args,
     )
 
-    def _handle_term(_signum, _frame):
-        supervisor.stop.set()
-        if supervisor.child is not None and supervisor.child.poll() is None:
-            supervisor.child.terminate()
-
-    signal.signal(signal.SIGTERM, _handle_term)
+    _install_lifecycle_hooks(supervisor)
     return supervisor.run()
+
+
+def _install_lifecycle_hooks(supervisor: Supervisor) -> None:
+    """Unlink the pane on hangup/kill so a leftover .sock cannot trap the next attach.
+
+    SIGHUP (closed terminal) otherwise terminates Python without ``finally``.
+    """
+    import atexit
+
+    atexit.register(supervisor.abandon)
+
+    def _on_signal(signum, _frame):
+        supervisor.abandon()
+        supervisor._restore_tty()
+        if signum == signal.SIGINT:
+            raise KeyboardInterrupt
+        os._exit(128 + signum)
+
+    for name in ("SIGHUP", "SIGTERM", "SIGINT", "SIGQUIT"):
+        sig = getattr(signal, name, None)
+        if sig is None:
+            continue
+        try:
+            signal.signal(sig, _on_signal)
+        except (ValueError, OSError):
+            continue

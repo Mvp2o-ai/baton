@@ -4,7 +4,7 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
-from baton.bus import PaneState
+from baton.bus import PaneState, is_pane_listening
 from baton.dirs import encode_claude_project
 from baton.paths import panes_dir, sockets_dir, ensure_dirs
 
@@ -41,9 +41,11 @@ def list_panes() -> list[PaneState]:
             state = PaneState.from_dict(json.loads(path.read_text(encoding="utf-8")))
         except (OSError, json.JSONDecodeError, KeyError):
             continue
-        live = sockets_dir().joinpath(f"{state.pane_id}.sock").exists()
-        if live:
-            out.append(state)
+        if not is_pane_listening(state.pane_id):
+            if sockets_dir().joinpath(f"{state.pane_id}.sock").exists():
+                remove_pane(state.pane_id)
+            continue
+        out.append(state)
     return out
 
 

@@ -552,6 +552,109 @@ def test_default_pane_id_errors_when_cwd_is_not_attached(monkeypatch, tmp_path):
         default_pane_id(tmp_path)
 
 
+def test_list_panes_reaps_stale_socket(monkeypatch, tmp_path):
+    from baton.bus import PaneState
+    from baton.panes import list_panes, pane_file, write_pane
+    from baton.paths import ensure_dirs, sockets_dir
+
+    home = tmp_path / "hs"
+    monkeypatch.setenv("BATON_HOME", str(home))
+    ensure_dirs()
+    pane_id = "deadpane1"
+    write_pane(
+        PaneState(
+            pane_id=pane_id,
+            thread_id="proj",
+            cwd=str(tmp_path / "proj"),
+            model_id="cursor:composer-2.5",
+            harness="cursor",
+            session_id=None,
+            idle=True,
+            pid=1,
+        )
+    )
+    sock = sockets_dir() / f"{pane_id}.sock"
+    sock.write_bytes(b"")
+    assert list_panes() == []
+    assert not pane_file(pane_id).exists()
+    assert not sock.exists()
+
+
+def test_detach_clears_stale_pane_for_cwd(monkeypatch, tmp_path, capsys):
+    from baton.bus import PaneState
+    from baton.cli import main
+    from baton.panes import pane_file, write_pane
+    from baton.paths import ensure_dirs, sockets_dir
+
+    home = tmp_path / "hs"
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.setenv("BATON_HOME", str(home))
+    monkeypatch.chdir(proj)
+    ensure_dirs()
+    pane_id = "deadpane2"
+    write_pane(
+        PaneState(
+            pane_id=pane_id,
+            thread_id="proj",
+            cwd=str(proj.resolve()),
+            model_id="cursor:composer-2.5",
+            harness="cursor",
+            session_id=None,
+            idle=True,
+            pid=1,
+        )
+    )
+    sock = sockets_dir() / f"{pane_id}.sock"
+    sock.write_bytes(b"")
+    assert main(["detach"]) == 0
+    out = capsys.readouterr().out.lower()
+    assert "nothing attached" in out or "stale" in out
+    assert not pane_file(pane_id).exists()
+    assert not sock.exists()
+
+
+def test_abandon_unlinks_pane_without_waiting(monkeypatch, tmp_path):
+    from baton.bus import PaneState
+    from baton.catalog import Model
+    from baton.config import Config
+    from baton.panes import pane_file, write_pane
+    from baton.paths import ensure_dirs, sockets_dir
+    from baton.supervisor import Supervisor
+
+    home = tmp_path / "hs"
+    monkeypatch.setenv("BATON_HOME", str(home))
+    ensure_dirs()
+    pane_id = "livepane1"
+    write_pane(
+        PaneState(
+            pane_id=pane_id,
+            thread_id="proj",
+            cwd=str(tmp_path),
+            model_id="cursor:composer-2.5",
+            harness="cursor",
+            session_id=None,
+            idle=True,
+            pid=1,
+        )
+    )
+    sock = sockets_dir() / f"{pane_id}.sock"
+    sock.write_bytes(b"")
+    cfg = Config()
+    sup = Supervisor(
+        cwd=tmp_path,
+        thread_id="proj",
+        model=Model("composer", "composer-2.5", "cursor"),
+        session_id=None,
+        cfg=cfg,
+        pane_id=pane_id,
+    )
+    sup.abandon()
+    sup.abandon()
+    assert not pane_file(pane_id).exists()
+    assert not sock.exists()
+
+
 def test_payload_directories_from_claude_codex_and_cursor():
     from baton.hook import payload_directories, payload_transcript
 

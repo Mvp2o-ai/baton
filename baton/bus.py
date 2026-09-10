@@ -13,6 +13,15 @@ def socket_path(pane_id: str) -> Path:
     return sockets_dir() / f"{pane_id}.sock"
 
 
+def is_pane_listening(pane_id: str, timeout: float = 0.2) -> bool:
+    """True only if a supervisor answers. A leftover .sock is not live."""
+    try:
+        resp = send_request(pane_id, {"op": "status"}, timeout=timeout)
+    except (FileNotFoundError, OSError, RuntimeError, json.JSONDecodeError, ValueError):
+        return False
+    return bool(resp.get("ok"))
+
+
 def send_request(pane_id: str, payload: dict[str, Any], timeout: float = 5.0) -> dict[str, Any]:
     path = socket_path(pane_id)
     if not path.exists():
