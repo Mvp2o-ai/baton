@@ -239,6 +239,11 @@ def test_launch_argv(tmp_path):
     argv = launch_argv(rec, model, "sid")
     assert "--resume=sid" in argv
     assert "--model" in argv
+    passthrough = launch_argv(
+        rec, model, "sid", extra_args=["--resume=sid", "--print"]
+    )
+    assert passthrough.count("--resume=sid") == 1
+    assert passthrough[-1] == "--print"
 
 
 def test_init_exits_without_prompt(monkeypatch, tmp_path):
@@ -285,13 +290,22 @@ def test_set_aliases_parse():
         assert args.func is cmd_attach
         assert args.harness == harness
     sid = "5e3f8600-faab-4e48-abc9-13c8b3aa0599"
-    resumed = parser.parse_args(["agent", f"--resume={sid}"])
+    from baton.cli import parse_cli
+    from baton.txcript_parse import session_id_from_argv
+
+    _, resumed = parse_cli(["agent", f"--resume={sid}"])
     assert resumed.func is cmd_attach
     assert resumed.harness == HARNESS_CURSOR
-    assert resumed.session == sid
-    spaced = parser.parse_args(["claude", "--resume", sid])
-    assert spaced.session == sid
+    assert resumed.provider_args == [f"--resume={sid}"]
+    assert session_id_from_argv(resumed.provider_args) == sid
+    _, spaced = parse_cli(["claude", "--resume", sid])
+    assert spaced.provider_args == ["--resume", sid]
     assert parser.parse_args(["codex", "--session", sid]).session == sid
+    _, print_mode = parse_cli(["agent", "--print", "--resume", sid])
+    assert "--print" in print_mode.provider_args
+    assert session_id_from_argv(print_mode.provider_args) == sid
+    with pytest.raises(SystemExit):
+        parse_cli(["models", "--resume=x"])
 
 
 def test_cli_models_json(monkeypatch, tmp_path):

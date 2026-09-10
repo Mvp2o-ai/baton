@@ -35,12 +35,14 @@ class Supervisor:
         session_id: str | None,
         cfg: Config,
         pane_id: str | None = None,
+        extra_args: list[str] | None = None,
     ) -> None:
         self.cfg = cfg
         self.cwd = cwd.resolve()
         self.thread_id = thread_id
         self._model = model
         self.session_id = session_id
+        self._provider_args = list(extra_args or [])
         self.pane_id = pane_id or uuid.uuid4().hex[:8]
         self.child: subprocess.Popen | None = None
         self.pending_model: Model | None = None
@@ -195,7 +197,9 @@ class Supervisor:
 
         model = self.model
         rec = require_enabled(self.cfg.clis, model.harness)
-        argv = launch_argv(rec, model, self.session_id)
+        extra = self._provider_args
+        self._provider_args = []
+        argv = launch_argv(rec, model, self.session_id, extra_args=extra)
         log(f"launching {' '.join(argv)}")
         child, master = spawn_with_pty(argv, str(self.cwd))
         self._pty_master = master
@@ -325,6 +329,7 @@ def attach(
     model_id: str | None = None,
     session_id: str | None = None,
     harness: str | None = None,
+    extra_args: list[str] | None = None,
 ) -> int:
     cfg = load_config()
     workdir = (cwd or Path.cwd()).resolve()
@@ -364,6 +369,7 @@ def attach(
         model=start,
         session_id=session_id,
         cfg=cfg,
+        extra_args=extra_args,
     )
 
     def _handle_term(_signum, _frame):

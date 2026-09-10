@@ -139,7 +139,7 @@ Cursor’s documented install drops `agent` in `~/.local/bin`. That directory is
 | Command | Purpose |
 |---|---|
 | `baton` / `baton attach` | Ensure config + slash hooks, then take over this tty |
-| `baton claude` / `codex` / `agent` | Same, starting on that home (`cursor` and `agentx` are aliases for agent). `--resume=<id>` / `--session` continues a native session |
+| `baton claude` / `codex` / `agent` | Same, starting on that home (`cursor` and `agentx` are aliases for agent). Extra flags go to that CLI |
 | `baton init` | Print the CLI table, then attach (`--no-attach` to skip) |
 | `baton clis` | Toggle homes (optional) |
 | `baton set` | Pick a live model and switch the attached pane (`list`, `select`, `sidecar` are aliases) |

@@ -19,6 +19,9 @@ from baton.sidecar import default_pane_id, set_loop, set_model
 from baton.style import brass, cyan, dim, err, heading, log, magenta, ok, print_logo
 from baton.supervisor import attach
 from baton.txcript_hop import find_txcript
+from baton.txcript_parse import session_id_from_argv
+
+_PASSTHROUGH_CMDS = frozenset({None, "attach", "init", *HOME_COMMANDS})
 
 
 def _emit(args: argparse.Namespace, payload, text: str) -> int:
@@ -272,12 +275,15 @@ def cmd_attach(args: argparse.Namespace) -> int:
             kind="error",
         )
         return 1
+    extras = list(getattr(args, "provider_args", None) or [])
+    session = getattr(args, "session", None) or session_id_from_argv(extras)
     return attach(
         cwd=workdir,
         thread_id=getattr(args, "thread", None),
         model_id=getattr(args, "model", None),
-        session_id=getattr(args, "session", None),
+        session_id=session,
         harness=getattr(args, "harness", None),
+        extra_args=extras,
     )
 
 
@@ -321,9 +327,7 @@ def _add_attach_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--model", help="starting --model id; omit to use the home default")
     parser.add_argument(
         "--session",
-        "--resume",
-        dest="session",
-        help="native session id to resume (same as the home CLI --resume)",
+        help="Baton-only: native session id if you are not passing the home CLI's resume flag",
     )
 
 
@@ -344,6 +348,7 @@ def build_parser() -> argparse.ArgumentParser:
         session=None,
         json=False,
         no_attach=False,
+        provider_args=None,
     )
     sub = parser.add_subparsers(dest="cmd", required=False)
 
@@ -444,9 +449,23 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def parse_cli(
+    argv: list[str] | None = None,
+) -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args, unknown = parser.parse_known_args(argv)
+    cmd = getattr(args, "cmd", None)
+    allow = cmd in _PASSTHROUGH_CMDS
+    if cmd == "init" and getattr(args, "no_attach", False):
+        allow = False
+    if unknown and not allow:
+        parser.error("unrecognized arguments: " + " ".join(unknown))
+    args.provider_args = unknown
+    return parser, args
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser, args = parse_cli(argv)
     func = getattr(args, "func", None)
     if func is None:
         parser.print_help()
