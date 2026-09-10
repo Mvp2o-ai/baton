@@ -173,6 +173,8 @@ python3 -m pytest -q
 node bin/baton.js --version
 ```
 
+PRs: [CONTRIBUTING.md](CONTRIBUTING.md). `main` is protected; the `CI` check must pass. npm publishes only from a `vMAJOR.MINOR.PATCH` GitHub Release on this repo.
+
 ## License
 
 Apache License 2.0. See `LICENSE` and `NOTICE`.
