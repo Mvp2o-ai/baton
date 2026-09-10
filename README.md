@@ -1,5 +1,9 @@
 # Baton
 
+<p align="center">
+  <img src="docs/hero.gif" alt="The hop. Same tab, same thread." width="720" />
+</p>
+
 Sidecar model switcher for **Claude Code**, **Codex**, and **Cursor CLI**.
 
 One shared model catalog. Each model has a **home CLI**. The switcher is a separate process (adjacent pane or another window). The coding terminal stays the same window; the operator binary is replaced.
