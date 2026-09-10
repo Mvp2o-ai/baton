@@ -33,6 +33,29 @@ def test_txcript_pin_matches_readme_and_ci():
     assert TXCRIPT_REV in install_cmd()
 
 
+def test_package_versions_match():
+    import re
+    import tomllib
+
+    root = Path(__file__).resolve().parents[1]
+    npm = json.loads((root / "package.json").read_text(encoding="utf-8"))["version"]
+    py = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "version"
+    ]
+    init = (root / "baton" / "__init__.py").read_text(encoding="utf-8")
+    found = re.search(r'^__version__ = "([^"]+)"$', init, re.M)
+    assert found, "baton/__init__.py must set __version__"
+    assert npm == py == found.group(1)
+
+
+def test_npm_publish_only_on_semver_release_tags():
+    root = Path(__file__).resolve().parents[1]
+    yml = (root / ".github/workflows/npm-publish.yml").read_text(encoding="utf-8")
+    assert "Mvp2o-ai/baton" in yml
+    assert r"^v[0-9]+\.[0-9]+\.[0-9]+$" in yml
+    assert "needs.guard.outputs.should_publish" in yml
+
+
 def test_encode_claude_project_replaces_non_alnum():
     encoded = encode_claude_project("/Users/ken/dev/mcp-code-execution")
     assert encoded == "-Users-ken-dev-mcp-code-execution"
