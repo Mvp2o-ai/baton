@@ -1,27 +1,36 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from baton.bus import send_request
 from baton.catalog import Model, resolve
 from baton.config import load_config
-from baton.panes import list_panes, panes_for_cwd
+from baton.dirs import agents_home, claude_config_dir, codex_home, cursor_user_home
+from baton.panes import list_panes, panes_for_cwds, panes_for_transcript
+from baton.paths import home_dir
 from baton.picker import pick
 from baton.provider_models import collect_catalog
 from baton.style import err, ok
 
 _ATTACH_HOWTO = (
     "In a project terminal run `baton claude`, `baton codex`, or `baton agent`, "
-    "then type /baton in that same terminal. An IDE chat tab is not an attach pane."
+    "then type /baton in that same terminal or in an IDE chat for that project."
 )
 
 
-def default_pane_id(cwd: Path | None = None) -> str:
+def default_pane_id(
+    cwd: Path | str | Sequence[Path | str] | None = None,
+    *,
+    transcript_path: str | None = None,
+) -> str:
     panes = list_panes()
     if not panes:
         raise RuntimeError(f"Nothing is attached.\n{_ATTACH_HOWTO}")
-    here = (cwd or Path.cwd()).resolve()
-    local = panes_for_cwd(here, panes)
+    candidates = _as_cwds(cwd)
+    local = panes_for_cwds(candidates, panes)
+    if not local and transcript_path:
+        local = panes_for_transcript(transcript_path, panes)
     if len(local) == 1:
         return local[0].pane_id
     if len(local) > 1:
@@ -32,6 +41,7 @@ def default_pane_id(cwd: Path | None = None) -> str:
         )
     if len(panes) == 1:
         return panes[0].pane_id
+    here = _described_cwd(candidates)
     live = "\n".join(f"  {p.pane_id}  {p.thread_id}  {p.cwd}" for p in panes)
     raise RuntimeError(
         f"This directory is not attached ({here}).\n"
@@ -40,12 +50,48 @@ def default_pane_id(cwd: Path | None = None) -> str:
     )
 
 
-def request_pick(pane_id: str | None = None) -> dict:
-    pid = pane_id or default_pane_id()
+def request_pick(
+    pane_id: str | None = None,
+    cwd: Path | str | Sequence[Path | str] | None = None,
+    transcript_path: str | None = None,
+) -> dict:
+    pid = pane_id or default_pane_id(cwd, transcript_path=transcript_path)
     resp = send_request(pid, {"op": "pick"}, timeout=3.0)
     if not resp.get("ok"):
         raise RuntimeError(resp.get("error") or "pick failed")
     return resp
+
+
+def _as_cwds(cwd: Path | str | Sequence[Path | str] | None) -> list[Path]:
+    if cwd is None:
+        return [Path.cwd().resolve()]
+    if isinstance(cwd, (str, Path)):
+        return [Path(cwd).expanduser().resolve()]
+    out = [Path(item).expanduser().resolve() for item in cwd]
+    return out or [Path.cwd().resolve()]
+
+
+def _described_cwd(candidates: list[Path]) -> Path:
+    for path in candidates:
+        if not _is_tooling_home(path):
+            return path
+    return candidates[0] if candidates else Path.cwd().resolve()
+
+
+def _is_tooling_home(path: Path) -> bool:
+    path = path.resolve()
+    homes = (
+        cursor_user_home(),
+        claude_config_dir(),
+        codex_home(),
+        agents_home(),
+        home_dir(),
+    )
+    for home in homes:
+        root = home.resolve()
+        if path == root or root in path.parents:
+            return True
+    return False
 
 
 def choose_model(*, status_lines: list[str] | None = None) -> Model | None:

@@ -384,7 +384,7 @@ def test_claude_allowlist(monkeypatch, tmp_path):
 def test_hook_pick_failure_is_instructional(monkeypatch):
     from baton.hook import handle_payload
 
-    def boom():
+    def boom(*_args, **_kwargs):
         raise RuntimeError("Nothing is attached.\nrun baton attach")
 
     monkeypatch.setattr("baton.hook.request_pick", boom)
@@ -528,6 +528,112 @@ def test_default_pane_id_errors_when_cwd_is_not_attached(monkeypatch, tmp_path):
 
     with pytest.raises(RuntimeError, match="This directory is not attached"):
         default_pane_id(tmp_path)
+
+
+def test_payload_directories_from_claude_codex_and_cursor():
+    from baton.hook import payload_directories, payload_transcript
+
+    project = Path("/tmp/one-mcp").resolve()
+    assert payload_directories({"cwd": str(project)}) == [project]
+    assert payload_directories({"workspace_roots": [str(project), str(project)]}) == [
+        project
+    ]
+    assert payload_directories({"cwd": "", "workspace_roots": []}) == []
+    assert (
+        payload_transcript({"transcript_path": "/tmp/transcript.jsonl"})
+        == "/tmp/transcript.jsonl"
+    )
+
+
+def test_cursor_hook_matches_workspace_roots_not_process_cwd(monkeypatch, tmp_path):
+    project = tmp_path / "one-mcp"
+    other = tmp_path / "mcp-code-execution"
+    cursor_home = tmp_path / ".cursor"
+    project.mkdir()
+    other.mkdir()
+    cursor_home.mkdir()
+    monkeypatch.chdir(cursor_home)
+    panes = [_pane("7f81bcfd", project), _pane("9be29ece", other)]
+    monkeypatch.setattr("baton.sidecar.list_panes", lambda: panes)
+    captured: dict = {}
+
+    def fake_send(pane_id, payload, timeout=5.0):
+        captured["pane_id"] = pane_id
+        captured["payload"] = payload
+        return {"ok": True}
+
+    monkeypatch.setattr("baton.sidecar.send_request", fake_send)
+    from baton.hook import handle_payload
+
+    out = handle_payload(
+        {"prompt": "/baton", "workspace_roots": [str(project)]},
+        vendor="cursor",
+    )
+    assert out["continue"] is False
+    assert "Opening the Baton model list" in out["user_message"]
+    assert captured["pane_id"] == "7f81bcfd"
+
+
+def test_claude_and_codex_hooks_match_payload_cwd(monkeypatch, tmp_path):
+    project = tmp_path / "proj"
+    other = tmp_path / "other"
+    claude_home = tmp_path / ".claude"
+    project.mkdir()
+    other.mkdir()
+    claude_home.mkdir()
+    monkeypatch.chdir(claude_home)
+    panes = [_pane("aaaa1111", other), _pane("bbbb2222", project)]
+    monkeypatch.setattr("baton.sidecar.list_panes", lambda: panes)
+    captured: list[str] = []
+
+    def fake_send(pane_id, payload, timeout=5.0):
+        captured.append(pane_id)
+        return {"ok": True}
+
+    monkeypatch.setattr("baton.sidecar.send_request", fake_send)
+    from baton.hook import handle_payload
+
+    claude = handle_payload(
+        {"prompt": "/baton", "cwd": str(project)},
+        vendor="claude",
+    )
+    assert claude["decision"] == "block"
+    assert captured[-1] == "bbbb2222"
+    codex = handle_payload(
+        {"prompt": "/baton", "cwd": str(project)},
+        vendor="codex",
+    )
+    assert codex["decision"] == "block"
+    assert captured[-1] == "bbbb2222"
+
+
+def test_cursor_hook_matches_transcript_path_when_roots_missing(monkeypatch, tmp_path):
+    project = tmp_path / "one-mcp"
+    other = tmp_path / "other"
+    cursor_home = tmp_path / ".cursor"
+    project.mkdir()
+    other.mkdir()
+    cursor_home.mkdir()
+    monkeypatch.chdir(cursor_home)
+    panes = [_pane("7f81bcfd", project), _pane("9be29ece", other)]
+    monkeypatch.setattr("baton.sidecar.list_panes", lambda: panes)
+    captured: dict = {}
+
+    def fake_send(pane_id, payload, timeout=5.0):
+        captured["pane_id"] = pane_id
+        return {"ok": True}
+
+    monkeypatch.setattr("baton.sidecar.send_request", fake_send)
+    from baton.hook import handle_payload
+
+    slug = str(project.resolve()).lstrip("/").replace("/", "-")
+    transcript = str(cursor_home / "projects" / slug / "agent-transcripts" / "x.jsonl")
+    out = handle_payload(
+        {"prompt": "/baton", "transcript_path": transcript},
+        vendor="cursor",
+    )
+    assert out["continue"] is False
+    assert captured["pane_id"] == "7f81bcfd"
 
 
 def test_format_catalog_plain_without_tty(monkeypatch):
