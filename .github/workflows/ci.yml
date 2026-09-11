@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo install --git https://github.com/wiltshirek/txcript --rev b35b6bee9f996cc2aea58dadef0a54fb5fa1d2fe txcript-cli
+      - run: cargo install --git https://github.com/wiltshirek/txcript --rev 4869b4f4c30c2a4fe2c4779bda841458c1688fc0 txcript-cli
 
   # Single required check for branch protection (matrix jobs become test (3.11), …).
   CI:

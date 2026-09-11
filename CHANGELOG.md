@@ -8,6 +8,7 @@
 - Keep `/baton` and resume controls working after CLI exit; retry crashes with the saved session and restore the source after failed handoffs or destination startup. Scope delayed termination to the original child, handle picker Escape/EOF, and bound transcript conversion waits.
 - Closing the attach tty (SIGHUP) unlinks the pane socket immediately; a crashed leftover is still reaped on the next list/status/detach/attach. `baton detach` after Connection refused is not a stuck state.
 - `baton claude|codex|agent` forwards unknown flags to that home CLI (`--resume=…`, `--print`, `resume <id>`, …). `--cwd` / `--thread` / `--model` / `--session` stay Baton's.
+- Pin txcript so Cursor → Codex hops clamp `call_id` to 64 characters (Codex Responses rejects the 85-byte Cursor tool ids).
 - `/baton` from Cursor, Claude, and Codex hooks matches the live pane using the hook payload’s project directory (`workspace_roots` / `cwd`, then transcript path), not the hook process working directory. Cursor IDE chats no longer fail as “not attached (`~/.cursor`)” when that project already has a pane.
 - On a harness hop, request directory symlinks so the destination CLI can see user-global skills created in another provider. The real folder stays where it was created. Cursor already sharing `~/.agents` with Codex is expected; hops to Cursor skip links those trees already expose.
 - README and `docs/directories.md` lead with that hop: skills come with you (prompt, hop matrix, what is out of scope).
