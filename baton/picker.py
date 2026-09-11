@@ -114,7 +114,7 @@ def _pick_arrows(
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     try:
-        tty.setcbreak(fd)
+        tty.setcbreak(fd, termios.TCSANOW)
         while True:
             visible = _filter(rows, query)
             height = max(8, shutil.get_terminal_size((80, 24)).lines - 10)
@@ -126,7 +126,7 @@ def _pick_arrows(
                 scroll = index - height + 1
             _draw(visible, index, scroll, height, query, errors, status_lines)
             key = _read_key()
-            if key in {"q", "\x03"} and not query:
+            if key == "" or key == "\x03" or (key == "q" and not query):
                 return PickResult(quit=True)
             if key == "r" and not query:
                 return PickResult(refresh=True)
@@ -149,6 +149,8 @@ def _pick_arrows(
             elif len(key) == 1 and key.isprintable() and key not in {"\r", "\n"}:
                 query += key
                 index = 0
+    except KeyboardInterrupt:
+        return PickResult(quit=True)
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
         sys.stdout.write("\x1b[0m\n")
@@ -209,11 +211,19 @@ def _draw(
 
 
 def _read_key() -> str:
-    ch = sys.stdin.read(1)
+    import os
+    import select
+
+    fd = sys.stdin.fileno()
+    ch = os.read(fd, 1).decode("utf-8", errors="replace")
     if ch == "\x1b":
-        nxt = sys.stdin.read(1)
+        if not select.select([fd], [], [], 0.1)[0]:
+            return "esc"
+        nxt = os.read(fd, 1).decode("utf-8", errors="replace")
         if nxt == "[":
-            arrow = sys.stdin.read(1)
+            if not select.select([fd], [], [], 0.1)[0]:
+                return "esc"
+            arrow = os.read(fd, 1).decode("utf-8", errors="replace")
             return {"A": "up", "B": "down"}.get(arrow, "esc")
         return "esc"
     if ch in {"\x7f", "\b"}:

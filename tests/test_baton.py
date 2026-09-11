@@ -352,19 +352,20 @@ def test_cursor_home_models_keeps_composer_and_grok():
     assert not is_cursor_home_model("gpt-5")
 
 
-def test_parse_codex_catalog_keeps_hide_skips_none():
+def test_parse_codex_catalog_keeps_hide_skips_none_and_old_gpt():
     from baton.provider_models import parse_codex_catalog
 
     rows = parse_codex_catalog(
         {
             "models": [
                 {"slug": "gpt-5.6-sol", "display_name": "GPT-5.6-Sol", "visibility": "list", "priority": 6},
+                {"slug": "gpt-5.6-luna", "display_name": "GPT-5.6-Luna", "visibility": "hide", "priority": 8},
                 {"slug": "gpt-5.4", "display_name": "GPT-5.4", "visibility": "hide", "priority": 16},
                 {"slug": "internal", "display_name": "Internal", "visibility": "none", "priority": 1},
             ]
         }
     )
-    assert [m.provider_model for m in rows] == ["gpt-5.6-sol", "gpt-5.4"]
+    assert [m.provider_model for m in rows] == ["gpt-5.6-sol", "gpt-5.6-luna"]
     assert rows[0].harness == "codex"
 
 
@@ -386,8 +387,31 @@ def test_merge_codex_catalogs_keeps_bundled_when_live_is_thin():
     }
     rows = merge_codex_catalogs([bundled, live])
     slugs = [m.provider_model for m in rows]
-    assert slugs == ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-luna", "gpt-5.2"]
+    assert slugs == ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-luna"]
     assert rows[1].label == "Sol (account)"
+
+
+def test_listed_codex_slug_is_gpt_5_6_and_up():
+    from baton.catalog import is_listed_codex_slug
+
+    assert is_listed_codex_slug("gpt-5.6-sol")
+    assert is_listed_codex_slug("gpt-5.6-terra")
+    assert is_listed_codex_slug("gpt-6-astra")
+    assert not is_listed_codex_slug("gpt-5.5")
+    assert not is_listed_codex_slug("gpt-5.4-mini")
+    assert not is_listed_codex_slug("gpt-5.3-codex-spark")
+    assert not is_listed_codex_slug("gpt-reserve")
+    assert not is_listed_codex_slug("codex-auto-review")
+
+
+def test_claude_built_in_is_recent_sonnet_opus_fable():
+    ids = {m.provider_model for m in CLAUDE_BUILT_IN}
+    assert {"opus", "sonnet", "fable", "haiku", "best", "opusplan"} <= ids
+    assert {"claude-fable-5-1", "claude-opus-5", "claude-sonnet-5", "claude-fable-5"} <= ids
+    assert "fable[1m]" in ids
+    assert "claude-opus-4-8" not in ids
+    assert "claude-sonnet-4-6" not in ids
+    assert "claude-haiku-4-5-20251001" not in ids
 
 
 def test_claude_allowlist(monkeypatch, tmp_path):

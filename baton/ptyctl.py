@@ -9,6 +9,7 @@ import signal
 import sys
 import termios
 import tty
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from baton.hook import prompt_is_baton
@@ -124,6 +125,8 @@ def pump(
     child: subprocess.Popen,
     master: int,
     stop: threading.Event,
+    *,
+    tick: Callable[[], None] | None = None,
 ) -> str:
     stdin_fd = sys.stdin.fileno()
     old = termios.tcgetattr(stdin_fd)
@@ -138,6 +141,8 @@ def pump(
         signal.signal(signal.SIGWINCH, _winch)
         _copy_winsize(stdin_fd, master)
         while child.poll() is None and not stop.is_set():
+            if tick is not None:
+                tick()
             try:
                 readable, _, _ = select.select([stdin_fd, master], [], [], 0.2)
             except (InterruptedError, ValueError):
@@ -148,6 +153,7 @@ def pump(
                 except OSError:
                     data = b""
                 if not data:
+                    stop.set()
                     break
                 forwarded, pick = tracker.feed(data)
                 if forwarded:
@@ -170,3 +176,43 @@ def pump(
     finally:
         signal.signal(signal.SIGWINCH, previous_winch)
         termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old)
+
+
+def wait_for_input(stop: threading.Event, pending: Callable[[], bool]) -> str:
+    """Keep the attach terminal usable even when no vendor CLI is running."""
+    if not sys.stdin.isatty():
+        stop.set()
+        return EXIT
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    line = bytearray()
+    try:
+        tty.setcbreak(fd, termios.TCSANOW)
+        while not stop.is_set() and not pending():
+            if not select.select([fd], [], [], 0.2)[0]:
+                continue
+            chunk = os.read(fd, 1024)
+            if not chunk:
+                stop.set()
+                return EXIT
+            for value in chunk:
+                if value in {3, 4}:
+                    stop.set()
+                    return EXIT
+                if value in {10, 13}:
+                    text = line.decode("utf-8", errors="replace").strip()
+                    if prompt_is_baton(text):
+                        return PICK
+                    if not text:
+                        return "resume"
+                    line.clear()
+                elif value in {8, 127}:
+                    if line:
+                        line.pop()
+                elif value == 21:
+                    line.clear()
+                else:
+                    line.append(value)
+        return EXIT
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)

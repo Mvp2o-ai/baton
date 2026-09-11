@@ -57,13 +57,18 @@ def continue_session(
     if extra_args:
         cmd.extend(extra_args)
 
-    proc = subprocess.run(
-        cmd,
-        cwd=str(cwd),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(cwd),
+            check=False,
+            capture_output=True,
+            stdin=subprocess.DEVNULL,
+            text=True,
+            timeout=120,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise TxcriptError(f"transcript handoff interrupted: {exc}") from exc
     stdout = proc.stdout or ""
     stderr = proc.stderr or ""
     if proc.returncode != 0:

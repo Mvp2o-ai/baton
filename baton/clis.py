@@ -111,6 +111,8 @@ def require_enabled(records: dict[str, CliRecord], harness: str) -> CliRecord:
             f"{harness} is not enabled. Run `baton clis` and enable it."
         )
     if not rec.found:
+        rec.bin = which_first(rec.names)
+    if not rec.found:
         names = " / ".join(rec.names)
         raise RuntimeError(
             f"{harness} is enabled but {names} was not found on PATH. "
