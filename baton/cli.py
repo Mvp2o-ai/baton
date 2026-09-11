@@ -12,13 +12,16 @@ from baton.clis import discover, enable_found, set_bin, set_enabled
 from baton.config import load_config, save_config
 from baton.discover import list_sessions, session_to_dict
 from baton.doctor import collect_doctor, dumps_report, format_doctor
-from baton.panes import list_panes, panes_for_cwd
+from baton.panes import list_panes, panes_for_cwd, remove_pane
 from baton.picker import format_catalog
 from baton.provider_models import collect_catalog
 from baton.sidecar import default_pane_id, set_loop, set_model
 from baton.style import brass, cyan, dim, err, heading, log, magenta, ok, print_logo
 from baton.supervisor import attach
 from baton.txcript_hop import find_txcript
+from baton.txcript_parse import session_id_from_argv
+
+_PASSTHROUGH_CMDS = frozenset({None, "attach", "init", *HOME_COMMANDS})
 
 
 def _emit(args: argparse.Namespace, payload, text: str) -> int:
@@ -247,17 +250,35 @@ def cmd_sessions(args: argparse.Namespace) -> int:
 
 
 def cmd_detach(args: argparse.Namespace) -> int:
+    pane_id = getattr(args, "pane", None)
+    if not pane_id:
+        local = panes_for_cwd()
+        if not local:
+            print(ok("nothing attached here"))
+            return 0
+        if len(local) > 1:
+            ids = ", ".join(p.pane_id for p in local)
+            print(
+                err(
+                    f"This directory has more than one attach ({ids}). "
+                    "baton detach --pane <id>",
+                    stream=sys.stderr,
+                ),
+                file=sys.stderr,
+            )
+            return 1
+        pane_id = local[0].pane_id
     try:
-        pid = args.pane or default_pane_id()
-        resp = send_request(pid, {"op": "detach"})
+        resp = send_request(pane_id, {"op": "detach"})
         if not resp.get("ok"):
             print(err(f"error: {resp.get('error')}", stream=sys.stderr), file=sys.stderr)
             return 1
-        print(ok(f"detached pane {pid}"))
+        print(ok(f"detached pane {pane_id}"))
         return 0
-    except Exception as exc:  # noqa: BLE001
-        print(err(f"error: {exc}", stream=sys.stderr), file=sys.stderr)
-        return 1
+    except (FileNotFoundError, ConnectionError, TimeoutError, OSError):
+        remove_pane(pane_id)
+        print(ok(f"cleared stale pane {pane_id}"))
+        return 0
 
 
 def cmd_attach(args: argparse.Namespace) -> int:
@@ -272,12 +293,15 @@ def cmd_attach(args: argparse.Namespace) -> int:
             kind="error",
         )
         return 1
+    extras = list(getattr(args, "provider_args", None) or [])
+    session = getattr(args, "session", None) or session_id_from_argv(extras)
     return attach(
         cwd=workdir,
         thread_id=getattr(args, "thread", None),
         model_id=getattr(args, "model", None),
-        session_id=getattr(args, "session", None),
+        session_id=session,
         harness=getattr(args, "harness", None),
+        extra_args=extras,
     )
 
 
@@ -319,7 +343,10 @@ def _add_attach_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--cwd")
     parser.add_argument("--thread")
     parser.add_argument("--model", help="starting --model id; omit to use the home default")
-    parser.add_argument("--session", help="existing native session id to resume")
+    parser.add_argument(
+        "--session",
+        help="Baton-only: native session id if you are not passing the home CLI's resume flag",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -339,6 +366,7 @@ def build_parser() -> argparse.ArgumentParser:
         session=None,
         json=False,
         no_attach=False,
+        provider_args=None,
     )
     sub = parser.add_subparsers(dest="cmd", required=False)
 
@@ -439,9 +467,23 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def parse_cli(
+    argv: list[str] | None = None,
+) -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args, unknown = parser.parse_known_args(argv)
+    cmd = getattr(args, "cmd", None)
+    allow = cmd in _PASSTHROUGH_CMDS
+    if cmd == "init" and getattr(args, "no_attach", False):
+        allow = False
+    if unknown and not allow:
+        parser.error("unrecognized arguments: " + " ".join(unknown))
+    args.provider_args = unknown
+    return parser, args
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser, args = parse_cli(argv)
     func = getattr(args, "func", None)
     if func is None:
         parser.print_help()

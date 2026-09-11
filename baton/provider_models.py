@@ -2,17 +2,20 @@
 
 Each harness is limited to its home families — never the other products' models.
 
-Cursor: ``agent models``, then Composer + Grok flavors only.
-Codex: union of ``codex debug models --bundled`` and the live catalog.
-The live endpoint is entitlement-thinned; bundled is the CLI's full lineup.
-Claude Code: documented ``/model`` aliases plus user ``settings.json``
-``availableModels`` / ``modelPicker`` — there is no non-interactive list command.
+Cursor: ``agent models``, then Composer + Grok flavors only (Cursor Models pool).
+Codex: union of ``codex debug models --bundled`` and the live catalog, then
+GPT-5.6 and newer. The live endpoint is entitlement-thinned; bundled is the
+CLI's full lineup.
+Claude Code: current ``/model`` aliases plus recent Sonnet / Opus / Fable IDs,
+plus user ``settings.json`` ``availableModels`` / ``modelPicker``. There is no
+non-interactive list command.
 """
 
 from __future__ import annotations
 
 import json
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 
 from baton.catalog import (
     CLAUDE_BUILT_IN,
@@ -20,6 +23,7 @@ from baton.catalog import (
     HARNESS_CODEX,
     HARNESS_CURSOR,
     Model,
+    is_listed_codex_slug,
     make_model,
 )
 from baton.clis import CliRecord
@@ -30,17 +34,32 @@ class CatalogError(RuntimeError):
     pass
 
 
-def collect_catalog(clis: dict[str, CliRecord]) -> tuple[list[Model], list[str]]:
+_LAST_GOOD: dict[tuple[str, str | None], list[Model]] = {}
+
+
+def collect_catalog(clis: dict[str, CliRecord], *, refresh: bool = True) -> tuple[list[Model], list[str]]:
     """Return (models, per-harness error strings). Enabled CLIs only."""
     models: list[Model] = []
     errors: list[str] = []
-    for harness, rec in clis.items():
-        if not rec.enabled or not rec.found:
-            continue
-        try:
-            models.extend(fetch_harness(rec))
-        except (CatalogError, OSError, subprocess.TimeoutExpired) as exc:
-            errors.append(f"{harness}: {exc}")
+    enabled = [rec for rec in clis.values() if rec.enabled and rec.found]
+    with ThreadPoolExecutor(max_workers=max(1, len(enabled))) as pool:
+        jobs = []
+        for rec in enabled:
+            cached = _LAST_GOOD.get((rec.harness, rec.bin))
+            if not refresh and cached and rec.harness != HARNESS_CLAUDE:
+                models.extend(cached)
+            else:
+                jobs.append((rec, pool.submit(fetch_harness, rec)))
+        for rec, job in jobs:
+            try:
+                rows = job.result()
+                _LAST_GOOD[(rec.harness, rec.bin)] = rows
+                models.extend(rows)
+            except (CatalogError, OSError, subprocess.TimeoutExpired) as exc:
+                cached = _LAST_GOOD.get((rec.harness, rec.bin), [])
+                models.extend(cached)
+                suffix = " (using last successful list; r retries)" if cached else ""
+                errors.append(f"{rec.harness}: {exc}{suffix}")
     return models, errors
 
 
@@ -94,12 +113,14 @@ def fetch_codex(rec: CliRecord) -> list[Model]:
     # Using live alone drops most of the shipped lineup (remote catalog is
     # an entitlement snapshot, not a merge).
     catalogs: list[dict] = []
-    bundled = _run_json(rec.bin, ["debug", "models", "--bundled"], timeout=8)
-    if bundled:
-        catalogs.append(bundled)
-    live = _run_json(rec.bin, ["debug", "models"], timeout=12)
-    if live:
-        catalogs.append(live)
+    for args, timeout in ((["debug", "models", "--bundled"], 8), (["debug", "models"], 12)):
+        try:
+            raw = _run_json(rec.bin, args, timeout=timeout)
+            if raw:
+                parse_codex_catalog(raw)  # A malformed source cannot poison a usable one.
+                catalogs.append(raw)
+        except (CatalogError, OSError, subprocess.TimeoutExpired):
+            continue
     if not catalogs:
         cache = _read_codex_models_cache()
         if cache:
@@ -129,7 +150,8 @@ def merge_codex_catalogs(catalogs: list[dict]) -> list[Model]:
     """Union catalogs by slug. Later catalogs overlay earlier ones.
 
     ``visibility: none`` is hidden from picker and APIs — skip those.
-    ``hide`` is TUI-only; ``codex --model <slug>`` still works, so keep them.
+    ``hide`` is TUI-only; ``codex --model <slug>`` still works, so keep them
+    when they are GPT-5.6 or newer. Older GPT slugs are omitted from the picker.
     """
     ranked: dict[str, tuple[int, Model]] = {}
     saw_models_key = False
@@ -143,11 +165,13 @@ def merge_codex_catalogs(catalogs: list[dict]) -> list[Model]:
             if parsed is None:
                 continue
             slug, priority, model = parsed
+            if not is_listed_codex_slug(slug):
+                continue
             ranked[slug] = (priority, model)
     if not saw_models_key:
         raise CatalogError("codex catalog missing models[]")
     if not ranked:
-        raise CatalogError("codex catalog had no listed models")
+        raise CatalogError("codex catalog had no GPT-5.6+ models")
     rows = [(priority, slug, model) for slug, (priority, model) in ranked.items()]
     rows.sort(key=lambda row: (row[0], row[1]))
     return [model for _, _, model in rows]
@@ -247,6 +271,7 @@ def _run(bin_path: str, args: list[str], *, timeout: float) -> subprocess.Comple
     return subprocess.run(
         [bin_path, *args],
         capture_output=True,
+        stdin=subprocess.DEVNULL,
         text=True,
         timeout=timeout,
         check=False,

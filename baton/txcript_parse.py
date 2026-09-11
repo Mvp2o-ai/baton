@@ -34,6 +34,11 @@ def _split_cmd(cmd: str) -> list[str]:
     return [part for part in cmd.split() if part]
 
 
+def session_id_from_argv(argv: list[str]) -> str | None:
+    """Read a native resume id from Claude/Codex/Cursor-style argv."""
+    return _id_from_argv(argv)
+
+
 def _id_from_argv(argv: list[str]) -> str | None:
     if not argv:
         return None

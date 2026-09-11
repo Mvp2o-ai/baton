@@ -58,9 +58,13 @@ Inside Claude, Codex, or Cursor, type **`/baton`** (or `/baton list`). The picke
 
 `baton set` in another terminal is a backup. `baton clis` toggles homes if you need to.
 
+The picker reuses the model list loaded at attach; `r` refreshes it. A failed refresh keeps the last successful rows, and a Codex live-catalog timeout still allows its bundled or cached models. Catalog commands cannot consume terminal input.
+
+While the attach process and terminal remain alive, Baton rebuilds missing control sockets and pane records, isolates disconnected hooks, and retries an unexpectedly exited CLI twice with its saved session. A failed handoff or destination startup resumes the previous CLI. After a normal exit or repeated failure, the same terminal accepts `/baton` to switch, Enter to resume, and Ctrl-C to detach. Closing the terminal or killing the attach process ends that recovery boundary; already running attaches need a restart to load updated Baton code.
+
 Homes:
 
-Each enabled CLI contributes **its home models only**. Claude Code: documented `/model` aliases (plus `settings.json` `availableModels` / `modelPicker`). Codex: union of `codex debug models --bundled` and the live catalog (live is entitlement-thinned). Cursor: Composer and Grok flavors from `agent models` — not the rest of Cursor's kitchen-sink list. Picking a row always launches **that** CLI with that `--model` id.
+Each enabled CLI contributes **its home models only**. Claude Code: current `/model` aliases plus recent Sonnet / Opus / Fable IDs (plus `settings.json` `availableModels` / `modelPicker`). Codex: GPT-5.6 and newer from the union of `codex debug models --bundled` and the live catalog (live is entitlement-thinned). Cursor: Composer and Grok flavors from `agent models` — the Cursor Models pool, not the rest of Cursor's kitchen-sink list. Picking a row always launches **that** CLI with that `--model` id.
 
 No desktop apps. Cursor IDE `state.vscdb` is out of scope.
 
@@ -139,7 +143,7 @@ Cursor’s documented install drops `agent` in `~/.local/bin`. That directory is
 | Command | Purpose |
 |---|---|
 | `baton` / `baton attach` | Ensure config + slash hooks, then take over this tty |
-| `baton claude` / `codex` / `agent` | Same, starting on that home (`cursor` and `agentx` are aliases for agent) |
+| `baton claude` / `codex` / `agent` | Same, starting on that home (`cursor` and `agentx` are aliases for agent). Extra flags go to that CLI |
 | `baton init` | Print the CLI table, then attach (`--no-attach` to skip) |
 | `baton clis` | Toggle homes (optional) |
 | `baton set` | Pick a live model and switch the attached pane (`list`, `select`, `sidecar` are aliases) |

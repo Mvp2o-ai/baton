@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
+import socket
+import stat
+import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
-from baton.bus import PaneState
+from baton.bus import PaneState, is_pane_listening
 from baton.dirs import encode_claude_project
 from baton.paths import panes_dir, sockets_dir, ensure_dirs
 
@@ -16,7 +20,15 @@ def pane_file(pane_id: str) -> Path:
 def write_pane(state: PaneState) -> Path:
     ensure_dirs()
     path = pane_file(state.pane_id)
-    path.write_text(json.dumps(state.to_dict(), indent=2) + "\n", encoding="utf-8")
+    # Readers must never observe a half-written heartbeat.
+    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as handle:
+        temp = Path(handle.name)
+        try:
+            handle.write(json.dumps(state.to_dict(), indent=2) + "\n")
+            handle.flush()
+            os.replace(temp, path)
+        finally:
+            temp.unlink(missing_ok=True)
     return path
 
 
@@ -39,12 +51,49 @@ def list_panes() -> list[PaneState]:
     for path in sorted(panes_dir().glob("*.json")):
         try:
             state = PaneState.from_dict(json.loads(path.read_text(encoding="utf-8")))
-        except (OSError, json.JSONDecodeError, KeyError):
+        except (OSError, ValueError, KeyError, TypeError):
             continue
-        live = sockets_dir().joinpath(f"{state.pane_id}.sock").exists()
-        if live:
-            out.append(state)
+        if not is_pane_listening(state.pane_id):
+            if supervisor_alive(state):
+                # A timeout is not proof of death. Let the owner repair its bus.
+                out.append(state)
+            elif state.supervisor_pid is not None:
+                remove_pane(state.pane_id)
+            else:
+                # Older panes have no owner PID. Only reap a refused connection,
+                # never a busy listener whose status reply took too long.
+                sock_path = sockets_dir() / f"{state.pane_id}.sock"
+                try:
+                    if not stat.S_ISSOCK(sock_path.stat().st_mode):
+                        remove_pane(state.pane_id)
+                        continue
+                except FileNotFoundError:
+                    remove_pane(state.pane_id)
+                    continue
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as probe:
+                    probe.settimeout(0.2)
+                    try:
+                        probe.connect(str(sock_path))
+                    except (FileNotFoundError, ConnectionRefusedError):
+                        remove_pane(state.pane_id)
+                    except OSError:
+                        pass
+            continue
+        out.append(state)
     return out
+
+
+def supervisor_alive(state: PaneState) -> bool:
+    pid = state.supervisor_pid
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
 
 
 def panes_for_cwd(

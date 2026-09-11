@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 
@@ -43,8 +44,9 @@ class Model:
         return f"{self.harness}:{self.provider_model}"
 
 
-# Official Claude Code ``/model`` aliases (code.claude.com/docs/en/model-config).
-# Claude Code has no non-interactive list command; these are the documented lineup.
+# Claude Code has no non-interactive list command. Aliases track the current
+# family; versioned IDs pin recent snapshots (about three months). Older 4.x
+# IDs stay off the picker — ``--model`` still accepts them if typed.
 CLAUDE_BUILT_IN: tuple[Model, ...] = (
     Model("claude_code:opus", "opus", HARNESS_CLAUDE, "Opus"),
     Model("claude_code:sonnet", "sonnet", HARNESS_CLAUDE, "Sonnet"),
@@ -53,8 +55,26 @@ CLAUDE_BUILT_IN: tuple[Model, ...] = (
     Model("claude_code:best", "best", HARNESS_CLAUDE, "Best"),
     Model("claude_code:sonnet[1m]", "sonnet[1m]", HARNESS_CLAUDE, "Sonnet 1M"),
     Model("claude_code:opus[1m]", "opus[1m]", HARNESS_CLAUDE, "Opus 1M"),
+    Model("claude_code:fable[1m]", "fable[1m]", HARNESS_CLAUDE, "Fable 1M"),
     Model("claude_code:opusplan", "opusplan", HARNESS_CLAUDE, "Opus plan"),
+    Model("claude_code:claude-fable-5-1", "claude-fable-5-1", HARNESS_CLAUDE, "Fable 5.1"),
+    Model("claude_code:claude-opus-5", "claude-opus-5", HARNESS_CLAUDE, "Opus 5"),
+    Model("claude_code:claude-sonnet-5", "claude-sonnet-5", HARNESS_CLAUDE, "Sonnet 5"),
+    Model("claude_code:claude-fable-5", "claude-fable-5", HARNESS_CLAUDE, "Fable 5"),
 )
+
+# Codex picker: GPT-5.6 and newer only. Older slugs still work via ``codex --model``.
+CODEX_MIN_GPT = (5, 6)
+_CODEX_GPT_VERSION = re.compile(r"^gpt-(\d+)(?:\.(\d+))?", re.IGNORECASE)
+
+
+def is_listed_codex_slug(slug: str) -> bool:
+    match = _CODEX_GPT_VERSION.match(slug.strip())
+    if not match:
+        return False
+    major = int(match.group(1))
+    minor = int(match.group(2) or 0)
+    return (major, minor) >= CODEX_MIN_GPT
 
 
 def make_model(harness: str, provider_model: str, label: str = "") -> Model:

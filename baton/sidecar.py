@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -95,13 +96,15 @@ def _is_tooling_home(path: Path) -> bool:
 
 
 def choose_model(*, status_lines: list[str] | None = None) -> Model | None:
-    cfg = load_config()
+    refresh = False
     while True:
-        models, errors = collect_catalog(cfg.clis)
+        cfg = load_config()
+        models, errors = collect_catalog(cfg.clis, refresh=refresh)
         result = pick(models, errors=errors, status_lines=status_lines)
         if result.quit:
             return None
         if result.refresh or result.model is None:
+            refresh = result.refresh
             continue
         return result.model
 
