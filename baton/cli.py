@@ -329,7 +329,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     print(_print_clis(cfg))
     if installed:
         print()
-        print(ok("installed /baton slash commands for Claude, Codex, and Cursor."))
+        print(ok("installed /baton for Claude and Cursor, and $baton for Codex."))
     if getattr(args, "no_attach", False) or not sys.stdin.isatty():
         print()
         print(dim("next: cd /path/to/project && baton claude|codex|agent"))

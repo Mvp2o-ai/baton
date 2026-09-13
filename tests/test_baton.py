@@ -442,7 +442,7 @@ def test_hook_pick_failure_is_instructional(monkeypatch):
 
 
 def test_baton_slash_prompt_match():
-    from baton.hook import is_baton_invocation, prompt_is_baton, reply_json
+    from baton.hook import is_baton_invocation, is_baton_prefix, prompt_is_baton, reply_json
 
     assert prompt_is_baton("/baton list")
     assert prompt_is_baton("/baton")
@@ -450,6 +450,11 @@ def test_baton_slash_prompt_match():
     assert prompt_is_baton("/prompts:baton")
     assert not prompt_is_baton("please baton list the files")
     assert not prompt_is_baton("list")
+    assert is_baton_prefix("/")
+    assert is_baton_prefix("/b")
+    assert is_baton_prefix("$")
+    assert not is_baton_prefix("/m")
+    assert not is_baton_prefix("/s")
     assert is_baton_invocation({"command_name": "baton-list", "prompt": "hello"})
     assert reply_json("cursor", blocked=True, reason="x") == {
         "continue": False,
@@ -482,12 +487,35 @@ def test_slash_install_skips_user_owned_files(tmp_path, monkeypatch):
     assert again.count("codex_hooks") == 1
 
 
+def test_slash_install_codex_uses_agents_skill_not_prompt(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
+    monkeypatch.setattr("baton.slash_install.cursor_user_home", lambda: tmp_path / "cursor")
+    monkeypatch.setattr("baton.slash_install.agents_home", lambda: tmp_path / "agents")
+    prompt = tmp_path / "codex" / "prompts" / "baton.md"
+    prompt.parent.mkdir(parents=True)
+    prompt.write_text("<!-- baton-managed -->\nold prompt\n")
+    deprecated = tmp_path / "codex" / "skills" / "baton" / "SKILL.md"
+    deprecated.parent.mkdir(parents=True)
+    deprecated.write_text("<!-- baton-managed -->\nold skill\n")
+    from baton.slash_install import install
+
+    install()
+    assert not prompt.exists()
+    assert not deprecated.exists()
+    skill = tmp_path / "agents" / "skills" / "baton" / "SKILL.md"
+    policy = tmp_path / "agents" / "skills" / "baton" / "agents" / "openai.yaml"
+    assert skill.is_file()
+    assert "baton-managed" in skill.read_text()
+    assert "allow_implicit_invocation: false" in policy.read_text()
+
+
 def test_line_tracker_picks_baton_enter():
     from baton.ptyctl import LineTracker
 
     t = LineTracker()
     forwarded, pick = t.feed(b"/baton\r")
-    assert forwarded == b"/baton"
+    assert forwarded == b""
     assert pick is True
 
     t = LineTracker()
@@ -496,15 +524,21 @@ def test_line_tracker_picks_baton_enter():
     assert pick is False
 
     t = LineTracker()
-    t.feed(b"/bat")
+    forwarded, pick = t.feed(b"/bat")
+    assert forwarded == b""
     forwarded, pick = t.feed(b"on\n")
-    assert forwarded == b"on"
+    assert forwarded == b""
     assert pick is True
 
     t = LineTracker()
     forwarded, pick = t.feed(b"$baton\r")
     assert pick is True
-    assert forwarded == b"$baton"
+    assert forwarded == b""
+
+    t = LineTracker()
+    forwarded, pick = t.feed(b"/model\r")
+    assert pick is False
+    assert forwarded == b"/model\r"
 
 
 def test_style_respects_no_color(monkeypatch):

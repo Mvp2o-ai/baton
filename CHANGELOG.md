@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Codex `/baton` is not a missing install: Codex 0.117+ has no custom slash-command registry. Stop writing `~/.codex/prompts/baton.md`, register `$baton` only under `~/.agents/skills` (official USER root, explicit-only), and hold `/baton` in the attach PTY so the built-in `/` popup never sees it.
 - Picker catalogs stay current: Codex lists GPT-5.6 and newer only; Claude Code adds recent Sonnet / Opus / Fable IDs (`claude-opus-5`, `claude-sonnet-5`, `claude-fable-5-1`, …) and keeps aliases, not older 4.x pins. Cursor stays Composer + Grok (Cursor Models pool).
 - Recover control sockets and pane records in flight; disconnected or stalled hooks no longer take down the listener, and health-check timeouts do not delete a live supervisor's socket.
 - Reuse the attach's model catalog, keep successful rows on refresh failure, and retain bundled/cached Codex models after catalog timeouts. Model discovery runs concurrently with stdin disconnected.

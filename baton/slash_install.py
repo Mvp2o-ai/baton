@@ -1,4 +1,9 @@
-"""Install `/baton` slash stubs and prompt hooks into each home CLI."""
+"""Install `/baton` slash stubs and prompt hooks into each home CLI.
+
+Claude and Cursor have a real `commands/` registry. Codex does not: custom
+slash commands were removed in 0.117. Codex gets `$baton` at the official
+USER skill root (`~/.agents/skills`) plus the attach PTY intercept.
+"""
 
 from __future__ import annotations
 
@@ -34,25 +39,23 @@ Open the Baton model picker in this terminal (`baton attach` must be running).
 Type `/baton` or `/baton list`. If this prompt is sent to the agent, run `baton init`.
 """
 
-CODEX_PROMPT = """\
----
-description: Open the Baton model list
----
-
-<!-- baton-managed -->
-
-Handled by Baton. Prefer `/baton` or `$baton` while `baton attach` is running.
-"""
-
 CODEX_SKILL = """\
 ---
 name: baton
-description: Open the Baton model picker. Use when the user types /baton, /baton list, or $baton. Do not answer the user; Baton intercepts this command.
+description: Open the Baton model picker. Codex lists this as $baton under /skills. In an attached terminal, type /baton or $baton. Do not answer the user; Baton intercepts this command.
 ---
 
 <!-- baton-managed -->
 
 Do not produce a reply. Baton's UserPromptSubmit hook opens the model list.
+"""
+
+CODEX_SKILL_POLICY = """\
+interface:
+  display_name: Baton
+  short_description: Switch models across Claude, Codex, and Cursor
+policy:
+  allow_implicit_invocation: false
 """
 
 
@@ -71,6 +74,38 @@ def _write_managed(path: Path, body: str) -> bool:
             return False
     path.write_text(body, encoding="utf-8")
     return True
+
+
+def _remove_managed(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    if MARKER not in text:
+        return False
+    path.unlink()
+    return True
+
+
+def _rmdir_if_empty(path: Path) -> None:
+    try:
+        next(path.iterdir())
+    except StopIteration:
+        path.rmdir()
+    except OSError:
+        return
+
+
+def _write_codex_skill(root: Path) -> list[str]:
+    skill_md = root / "SKILL.md"
+    if not _write_managed(skill_md, CODEX_SKILL):
+        return []
+    policy = root / "agents" / "openai.yaml"
+    policy.parent.mkdir(parents=True, exist_ok=True)
+    policy.write_text(CODEX_SKILL_POLICY, encoding="utf-8")
+    return [str(skill_md), str(policy)]
 
 
 def _walk_strings(value) -> list[str]:
@@ -225,12 +260,14 @@ def install() -> list[str]:
     done.append(str(claude_settings))
 
     codex = codex_home()
-    if _write_managed(codex / "prompts" / "baton.md", CODEX_PROMPT):
+    # Custom prompts were removed in Codex 0.117; they never registered /baton.
+    if _remove_managed(codex / "prompts" / "baton.md"):
         done.append(str(codex / "prompts" / "baton.md"))
-    if _write_managed(codex / "skills" / "baton" / "SKILL.md", CODEX_SKILL):
-        done.append(str(codex / "skills" / "baton" / "SKILL.md"))
-    if _write_managed(agents_home() / "skills" / "baton" / "SKILL.md", CODEX_SKILL):
-        done.append(str(agents_home() / "skills" / "baton" / "SKILL.md"))
+    deprecated_skill = codex / "skills" / "baton" / "SKILL.md"
+    if _remove_managed(deprecated_skill):
+        done.append(str(deprecated_skill))
+        _rmdir_if_empty(deprecated_skill.parent)
+    done.extend(_write_codex_skill(agents_home() / "skills" / "baton"))
     codex_hooks = codex / "hooks.json"
     _save_json(codex_hooks, _merge_codex_hooks(_load_json(codex_hooks), baton_hook_command("codex")))
     done.append(str(codex_hooks))
