@@ -1,8 +1,9 @@
 """Canonical on-disk roots for Claude Code, Codex, and Cursor CLI.
 
 Session trees are owned by the home CLIs and txcript. Baton also writes
-managed `/baton` slash stubs and prompt hooks into each CLI's config
-directory (`<!-- baton-managed -->`); it skips files you already own.
+managed `/baton` stubs and prompt hooks into each CLI's config directory
+(`<!-- baton-managed -->`); it skips files you already own. Codex has no
+custom `/` registry, so that home gets ``$baton`` at the USER skill root.
 
 User-global skill folders live next to those homes. Baton never treats
 ``~/.cursor/skills-cursor`` or Claude's reserved ``synced`` name as user

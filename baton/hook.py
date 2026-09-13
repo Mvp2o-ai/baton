@@ -24,6 +24,24 @@ _PROMPT_RE = re.compile(
 
 _COMMAND_NAMES = {"baton", "baton-list", "baton-set", "baton-select"}
 
+# Codex's `/` popup is built-in only. Hold these prefixes in the attach PTY so
+# `/baton` never reaches that parser. `/s` is not a prefix of `/baton`, so
+# `/skills` / `/status` still flush through.
+_HOLD_TARGETS = (
+    "/baton",
+    "/baton list",
+    "/baton set",
+    "/baton select",
+    "/baton models",
+    "/baton pick",
+    "$baton",
+    "$baton list",
+    "$baton set",
+    "$baton select",
+    "$baton models",
+    "$baton pick",
+)
+
 
 def is_baton_invocation(payload: dict) -> bool:
     name = str(payload.get("command_name") or "").strip().lower()
@@ -42,6 +60,15 @@ def prompt_is_baton(prompt: str) -> bool:
     if not text:
         return False
     return bool(_PROMPT_RE.match(text))
+
+
+def is_baton_prefix(text: str) -> bool:
+    """True while more keystrokes could still complete a Baton invocation."""
+    if prompt_is_baton(text):
+        return True
+    if not text:
+        return False
+    return any(target.startswith(text) for target in _HOLD_TARGETS)
 
 
 def payload_directories(payload: dict) -> list[Path]:

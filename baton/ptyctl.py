@@ -12,7 +12,7 @@ import tty
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from baton.hook import prompt_is_baton
+from baton.hook import is_baton_prefix, prompt_is_baton
 
 if TYPE_CHECKING:
     import subprocess
@@ -23,11 +23,17 @@ EXIT = "exit"
 
 
 class LineTracker:
-    """Follow the in-progress input line. Enter on `/baton` is a pick, not submit."""
+    """Follow the in-progress input line. Enter on `/baton` is a pick, not submit.
+
+    Codex's slash popup is a closed built-in list. Forwarding `/baton` into it
+    is what produces "not a command available". Hold prefixes of `/baton` and
+    `$baton` until the line is clearly something else, then flush.
+    """
 
     def __init__(self) -> None:
         self.line = bytearray()
         self.state = "ground"
+        self._unsent = bytearray()
 
     def feed(self, chunk: bytes) -> tuple[bytes, bool]:
         out = bytearray()
@@ -37,10 +43,31 @@ class LineTracker:
                 break
             if self._is_pick_enter(b):
                 pick = True
+                self._unsent.clear()
                 break
+            if b == 3:
+                self._unsent.clear()
+                self._note(b)
+                out.append(b)
+                continue
             self._note(b)
+            if self._should_hold():
+                self._unsent = bytearray(self.line)
+                continue
+            if self._unsent:
+                out.extend(self._unsent)
+                self._unsent.clear()
             out.append(b)
         return bytes(out), pick
+
+    def _should_hold(self) -> bool:
+        if self.state != "ground":
+            return False
+        try:
+            text = self.line.decode("utf-8")
+        except UnicodeDecodeError:
+            text = self.line.decode("latin-1")
+        return is_baton_prefix(text)
 
     def _is_pick_enter(self, b: int) -> bool:
         if self.state != "ground" or b not in {10, 13}:
