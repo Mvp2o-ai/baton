@@ -1,6 +1,6 @@
 {
   "name": "@batoncli/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sidecar model switcher for Claude Code, Codex, and Cursor CLI. Same pane, new harness — personal skills hop with you.",
   "license": "Apache-2.0",
   "bin": {
