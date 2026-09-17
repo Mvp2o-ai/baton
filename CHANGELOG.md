@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.1 — 2026-09-17
+
+- Ship optional `skills/catch-up-on-previous-thread`: any CLI can read Cursor IDE, Claude, and Codex JSONL for this project without a hop. Not installed by npm or `baton init`; clone and symlink into the three user skill homes.
+- npm trusted publish: Node 24, no `NPM_TOKEN` (OIDC only).
+
 ## 0.2.0 — 2026-09-14
 
 - On a harness hop, user-global skills come with you: directory-symlink only names the destination cannot already see. Cursor already sees Claude and `~/.agents` / `~/.codex`; hops to Claude or Codex pick up the rest. Additive — existing links are not rebuilt.

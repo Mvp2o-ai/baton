@@ -6,6 +6,8 @@ One shared model catalog. Each model has a **home CLI**. The switcher is a separ
 
 **The hop keeps your personal skills.** Claude, Cursor, and Codex each store user skills in a different home. A model switch used to leave those folders behind. After txcript continues the session, Baton inventories user-global skills and asks to directory-symlink anything the destination cannot already see. The real folder stays where you created it. No copies. No third tree. See [Skills come with you](#skills-come-with-you).
 
+**Catch up without hopping.** Any of the three CLIs can read the others' last JSONL thread from disk. Copy [`skills/catch-up-on-previous-thread`](skills/catch-up-on-previous-thread) into your user skill homes. Baton is not required for that. See [Catch up without hopping](#catch-up-without-hopping).
+
 **Built on [txcript](https://github.com/skillsynchq/txcript)** (Apache-2.0, [Skillsync](https://github.com/skillsynchq)). Txcript converts a session into another harness’s native format and writes it where that CLI can `--resume`. Baton does not convert transcripts. It is the control plane: catalog, CLI registration, pane supervisor, skill bridging, and `txcript continue --no-resume` on a harness hop. Not a fork.
 
 Apache-2.0.
@@ -104,6 +106,24 @@ Out of scope: project `.claude/skills` / `.cursor/skills` / `.agents/skills`, Cu
 Codex still scans `$CODEX_HOME/skills` as a deprecated user root. A skill created there stays there; Baton will not move it. New links go to `~/.agents/skills`.
 
 `baton doctor` prints the resolved skill roots. Path details: [docs/directories.md](docs/directories.md).
+
+## Catch up without hopping
+
+A hop **continues** the session in another CLI (Baton + txcript). You can also stay put and **read** the others' last thread.
+
+Open Claude, Codex, or Cursor and say “catch up on previous thread.” [`skills/catch-up-on-previous-thread`](skills/catch-up-on-previous-thread) knows where each CLI stores JSONL. No hop. No Baton. You still use each platform's subscription.
+
+Not copied into skill homes by npm or `baton init`. From a clone:
+
+```sh
+ln -sfn "$PWD/skills/catch-up-on-previous-thread" ~/.cursor/skills/catch-up-on-previous-thread
+ln -sfn "$PWD/skills/catch-up-on-previous-thread" ~/.claude/skills/catch-up-on-previous-thread
+ln -sfn "$PWD/skills/catch-up-on-previous-thread" ~/.agents/skills/catch-up-on-previous-thread
+```
+
+After `npm install -g @batoncli/cli`, the same folder is under `$(npm root -g)/@batoncli/cli/skills/`. If the skill already lives in one home, a Baton hop will offer to link it into the others.
+
+JSONL only: Cursor IDE `agent-transcripts`, Claude `projects/<encoded-cwd>/*.jsonl`, Codex `rollout-*.jsonl`. Cursor CLI `store.db` is the hop tree, not this skill.
 
 ## Session directories
 

@@ -23,3 +23,5 @@ Do not execute vendor CLIs (`claude`, `codex`, `agent`) just to read `--help`. P
 - No Cursor desktop (`state.vscdb`) and no Claude Desktop.
 
 The converter is [txcript](https://github.com/skillsynchq/txcript). Hop-blocking writer fixes land on the documented pin remote first (`wiltshirek/txcript`), then this repo’s pin (README, CI, `baton/txcript_pin.py`) bumps in the same product change. A clone plus the README `cargo install --git … --rev` must hop. Do not vendor a fork unless a store-writer bug cannot be upstreamed.
+
+Optional supporting skills live in `skills/`. They are not installed by npm or `baton init`. A clone plus the README `ln -sfn` lines must make “catch up on previous thread” work in Claude, Codex, and Cursor.
