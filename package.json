@@ -1,6 +1,6 @@
 {
   "name": "@batoncli/cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Sidecar model switcher for Claude Code, Codex, and Cursor CLI. Same pane, new harness — personal skills hop with you.",
   "license": "Apache-2.0",
   "bin": {
@@ -13,7 +13,8 @@
     "pyproject.toml",
     "README.md",
     "LICENSE",
-    "NOTICE"
+    "NOTICE",
+    "skills"
   ],
   "publishConfig": {
     "access": "public"

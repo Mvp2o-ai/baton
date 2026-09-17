@@ -28,6 +28,8 @@ Baton hops keep more than the transcript. After txcript writes the destination s
 
 Cursor desktop Composer (`state.vscdb` under Application Support / `%APPDATA%`) is not a supported home harness.
 
+JSONL that the optional [`skills/catch-up-on-previous-thread`](../skills/catch-up-on-previous-thread) skill can read without a hop: Cursor IDE `projects/<slug>/agent-transcripts/`, Claude `projects/<encoded-cwd>/*.jsonl`, Codex `rollout-*.jsonl`. Cursor CLI `store.db` is hop/txcript only.
+
 ## User-global skills (verified 2026-09)
 
 Sources: Claude Code skills docs, OpenAI Codex skills docs, Cursor skills docs / CLI 2.5+ symlink fix.
